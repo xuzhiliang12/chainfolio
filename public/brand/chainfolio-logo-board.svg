@@ -1,0 +1,74 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="canvas" x1="56" y1="28" x2="1127" y2="692" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0C1611"/>
+      <stop offset="0.58" stop-color="#07100C"/>
+      <stop offset="1" stop-color="#050907"/>
+    </linearGradient>
+    <linearGradient id="frame" x1="13" y1="9" x2="116" y2="121" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#17261E"/>
+      <stop offset="1" stop-color="#08100C"/>
+    </linearGradient>
+    <linearGradient id="chain" x1="33" y1="22" x2="92" y2="108" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D2FF7C"/>
+      <stop offset="0.48" stop-color="#9EFF57"/>
+      <stop offset="1" stop-color="#36E7D1"/>
+    </linearGradient>
+    <linearGradient id="folio" x1="48" y1="45" x2="79" y2="82" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F2FFE1"/>
+      <stop offset="1" stop-color="#9CFDEB"/>
+    </linearGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" stroke="#B9FF64" stroke-opacity="0.035"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="720" rx="28" fill="url(#canvas)"/>
+  <rect width="1200" height="720" rx="28" fill="url(#grid)"/>
+  <circle cx="956" cy="65" r="270" fill="#31DEC8" fill-opacity="0.035"/>
+  <circle cx="123" cy="665" r="250" fill="#A8FF4F" fill-opacity="0.035"/>
+
+  <text x="64" y="74" fill="#A8FF4F" font-family="Inter, ui-monospace, monospace" font-size="13" font-weight="700" letter-spacing="4">CHAINFOLIO / BRAND CONCEPT 01</text>
+  <text x="64" y="117" fill="#F2F7F3" font-family="Inter, ui-sans-serif, sans-serif" font-size="30" font-weight="700">链上节点，汇聚成一本总账。</text>
+  <text x="64" y="147" fill="#7F9188" font-family="Inter, ui-sans-serif, sans-serif" font-size="15">“C”代表 Chainfolio；三枚节点代表多链地址；内部三条账目代表资产归集。</text>
+
+  <g transform="translate(75 220) scale(2.25)">
+    <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#frame)"/>
+    <rect x="4.5" y="4.5" width="119" height="119" rx="27.5" stroke="#B9FF64" stroke-opacity="0.22"/>
+    <path d="M92 29C82 19 69 15 55 17C36 19 21 34 18 53C15 73 24 92 41 103C58 114 79 111 93 98" stroke="url(#chain)" stroke-width="10" stroke-linecap="round"/>
+    <g filter="url(#glow)"><circle cx="92" cy="29" r="6.5" fill="#CBFF74"/><circle cx="19" cy="62" r="6.5" fill="#A8FF59"/><circle cx="93" cy="98" r="6.5" fill="#3CE5CE"/></g>
+    <path d="M47 45.5H79M47 63.5H72M47 81.5H64" stroke="url(#folio)" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="88" cy="45.5" r="3.5" fill="#D2FF7C"/>
+  </g>
+
+  <g transform="translate(432 263)">
+    <text x="0" y="67" fill="#F2F7F3" font-family="Inter, 'IBM Plex Mono', ui-monospace, monospace" font-size="62" font-weight="700" letter-spacing="4">CHAINFOLIO</text>
+    <text x="5" y="105" fill="#7F9188" font-family="Inter, 'IBM Plex Mono', ui-monospace, monospace" font-size="15" font-weight="600" letter-spacing="4.8">MULTICHAIN ASSET CONTROL</text>
+    <path d="M4 145H600" stroke="#A8FF4F" stroke-opacity="0.18"/>
+    <text x="4" y="188" fill="#C7D0CB" font-family="Inter, ui-sans-serif, sans-serif" font-size="18">多链资产与钱包活动管理系统</text>
+    <text x="4" y="222" fill="#718078" font-family="Inter, ui-sans-serif, sans-serif" font-size="14">负责人 → 手机 → 钱包 → 链上地址 → 资产总账</text>
+  </g>
+
+  <g transform="translate(64 582)">
+    <text x="0" y="0" fill="#718078" font-family="Inter, ui-monospace, monospace" font-size="11" font-weight="700" letter-spacing="2">CORE PALETTE</text>
+    <rect x="0" y="24" width="118" height="54" rx="12" fill="#A8FF4F"/><text x="14" y="57" fill="#09100C" font-family="Inter, ui-monospace, monospace" font-size="12" font-weight="700">#A8FF4F</text>
+    <rect x="132" y="24" width="118" height="54" rx="12" fill="#36E7D1"/><text x="146" y="57" fill="#07100C" font-family="Inter, ui-monospace, monospace" font-size="12" font-weight="700">#36E7D1</text>
+    <rect x="264" y="24" width="118" height="54" rx="12" fill="#0C1611" stroke="#2B3C33"/><text x="278" y="57" fill="#F2F7F3" font-family="Inter, ui-monospace, monospace" font-size="12" font-weight="700">#0C1611</text>
+    <rect x="396" y="24" width="118" height="54" rx="12" fill="#F2F7F3"/><text x="410" y="57" fill="#0C1611" font-family="Inter, ui-monospace, monospace" font-size="12" font-weight="700">#F2F7F3</text>
+  </g>
+
+  <g transform="translate(933 548)">
+    <rect width="180" height="120" rx="22" fill="#F2F7F3"/>
+    <g transform="translate(26 17) scale(.68)">
+      <path d="M92 29C82 19 69 15 55 17C36 19 21 34 18 53C15 73 24 92 41 103C58 114 79 111 93 98" stroke="#17251E" stroke-width="10" stroke-linecap="round"/>
+      <circle cx="92" cy="29" r="6.5" fill="#17251E"/><circle cx="19" cy="62" r="6.5" fill="#17251E"/><circle cx="93" cy="98" r="6.5" fill="#17251E"/>
+      <path d="M47 45.5H79M47 63.5H72M47 81.5H64" stroke="#17251E" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="88" cy="45.5" r="3.5" fill="#17251E"/>
+    </g>
+    <text x="112" y="65" fill="#17251E" font-family="Inter, ui-monospace, monospace" font-size="12" font-weight="700" letter-spacing="1">MONO</text>
+  </g>
+</svg>

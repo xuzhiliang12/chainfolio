@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#090b0a" />
+    <meta name="description" content="按负责人、手机、OKX 钱包和链上地址逐级汇总的多链资产总账" />
+    <title>Chainfolio — 多链资产总账</title>
+    <link rel="icon" type="image/svg+xml" href="./brand/chainfolio-favicon.svg" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="auth-screen" id="authScreen">
+      <section class="auth-card" aria-labelledby="authTitle">
+        <div class="auth-brand"><img class="brand-mark" src="./brand/chainfolio-mark.svg" alt="" aria-hidden="true" /><span>CHAINFOLIO</span></div>
+        <p class="eyebrow">PRIVATE ASSET WATCH</p>
+        <h1 id="authTitle">登录你的链上资产看板</h1>
+        <p class="auth-intro" id="authIntro">数据保存在这台设备；每位用户拥有独立的负责人、手机、钱包、链上地址与资产数据。</p>
+        <label class="font-scale-control auth-font-scale">字体大小<select data-font-scale aria-label="选择字体大小"><option value="0.9">小 · 90%</option><option value="1">标准 · 100%</option><option value="1.15">大 · 115%</option><option value="1.3">特大 · 130%</option></select></label>
+        <div class="auth-tabs" id="authTabs" role="tablist">
+          <button class="active" type="button" data-auth-tab="login">登录</button>
+          <button id="registerTab" type="button" data-auth-tab="register" hidden>团队注册</button>
+        </div>
+        <form class="auth-form" id="setupForm" hidden>
+          <div class="setup-notice"><strong>首次运行</strong><span>创建这套 Chainfolio 的本地主账户。完成后，初始化入口会自动关闭。</span></div>
+          <label>主账户用户名<input id="setupUsername" required autocomplete="username" minlength="3" maxlength="32" /></label>
+          <label>密码<input id="setupPassword" required type="password" autocomplete="new-password" minlength="10" maxlength="128" /></label>
+          <label>确认密码<input id="setupPasswordConfirm" required type="password" autocomplete="new-password" minlength="10" maxlength="128" /></label>
+          <button class="button primary submit-button" type="submit">创建本地主账户</button>
+        </form>
+        <form class="auth-form" id="loginForm">
+          <label>用户名<input id="loginUsername" required autocomplete="username" maxlength="32" /></label>
+          <label>密码<input id="loginPassword" required type="password" autocomplete="current-password" maxlength="128" /></label>
+          <button class="button primary submit-button" type="submit">登录账户</button>
+        </form>
+        <form class="auth-form" id="registerForm" hidden>
+          <label>邀请码<input id="registerInvite" required autocomplete="off" placeholder="CF-XXXX-XXXX-XXXX" maxlength="20" /></label>
+          <label>用户名<input id="registerUsername" required autocomplete="username" minlength="3" maxlength="32" /></label>
+          <label>密码<input id="registerPassword" required type="password" autocomplete="new-password" minlength="10" maxlength="128" /></label>
+          <label>确认密码<input id="registerPasswordConfirm" required type="password" autocomplete="new-password" minlength="10" maxlength="128" /></label>
+          <button class="button primary submit-button" type="submit">创建独立账户</button>
+        </form>
+        <p class="auth-error" id="authError" role="alert"></p>
+        <p class="auth-footnote">系统只读取公开地址，不会要求助记词或私钥。</p>
+      </section>
+    </main>
+
+    <div class="app-shell" id="appShell" hidden>
+      <aside class="sidebar" aria-label="主导航">
+        <a class="brand" href="#overview" aria-label="Chainfolio 资产总览"><img class="brand-mark" src="./brand/chainfolio-mark.svg" alt="" aria-hidden="true" /><span>CHAINFOLIO</span></a>
+        <nav class="nav-list">
+          <small class="nav-group-label">总览</small>
+          <a class="nav-item active" href="#overview" data-section="overview"><span>▦</span>资产总览</a>
+          <a class="nav-item" href="#wallet-stats" data-section="wallet-stats"><span>▤</span>钱包管理</a>
+          <small class="nav-group-label">资产管理</small>
+          <a class="nav-item" href="#managers" data-section="managers"><span>♧</span>负责人</a>
+          <a class="nav-item" href="#phones" data-section="phones"><span>▣</span>手机</a>
+          <a class="nav-item" href="#addresses" data-section="addresses"><span>⌁</span>链上地址</a>
+          <a class="nav-item" href="#assets" data-section="assets"><span>◉</span>资产明细</a>
+          <small class="nav-group-label">系统配置</small>
+          <a class="nav-item" href="#networks" data-section="networks"><span>◇</span>链配置</a>
+          <a class="nav-item" href="#users" data-section="users" id="adminNav" hidden><span>♙</span>用户管理</a>
+          <small class="nav-group-label">帮助</small>
+          <a class="nav-item" href="#guide" data-section="guide"><span>?</span>使用指南</a>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="sync-box"><div><span class="status-dot"></span>10–24 小时随机更新</div><small id="syncTime">随机地址 · 随机批次</small></div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-label="打开导航" aria-expanded="false">☰</button>
+          <div class="mobile-brand"><img class="brand-mark" src="./brand/chainfolio-mark.svg" alt="" aria-hidden="true" /><b>CHAINFOLIO</b></div>
+          <div class="account-path"><span>我的总账</span><b>/</b><strong id="currentViewTitle">资产总览</strong><em>WATCH ONLY</em></div>
+          <div class="top-actions">
+            <label class="font-scale-control"><span>字体</span><select data-font-scale aria-label="选择字体大小"><option value="0.9">90%</option><option value="1">100%</option><option value="1.15">115%</option><option value="1.3">130%</option></select></label>
+            <button class="icon-button" id="privacyButton" aria-label="隐藏或显示金额" title="隐藏金额">◉</button>
+            <button class="profile" id="profileButton" type="button"><span id="profileInitials">CF</span><div><strong id="profileName">账户</strong><small id="profileRole">User</small></div></button>
+          </div>
+        </header>
+
+        <div class="content">
+          <section class="page-heading" id="overview" data-view="overview">
+            <div><p class="eyebrow">MASTER ACCOUNT</p><h1>多人管理，一本总账。</h1><p class="subhead">负责人 → 手机 → OKX 钱包 → 链上地址 → 资产，每一笔归属都清晰。</p></div>
+            <div class="heading-actions"><button class="button secondary" id="refreshButton"><span>↻</span>手动更新</button><button class="button primary" id="addAddressButton"><span>＋</span>添加链上地址</button></div>
+          </section>
+
+          <section class="hero-grid" aria-label="总账户概览" data-view="overview">
+            <article class="balance-card">
+              <div class="card-label"><span>资产总净值</span><div class="networth-controls"><label>对比<select id="netWorthRange" aria-label="选择净值对比周期"><option value="1d">昨日</option><option value="7d">7 天前</option><option value="30d">30 天前</option><option value="90d">90 天前</option><option value="custom">自定义日期</option></select></label><input id="netWorthDate" type="date" aria-label="选择净值对比日期" hidden /><span class="demo-badge" id="backendStatus">BACKEND STARTING</span></div></div>
+              <div class="balance-line"><span class="currency">$</span><strong class="private-value" id="totalBalance">184,260.42</strong></div>
+              <div class="balance-meta"><span id="portfolioChangePercent">—</span><span id="portfolioChangeValue">— · 24H</span></div>
+              <div class="hierarchy-line"><span>多链资产总账</span><i>›</i><span id="heroManagerCount">2 负责人</span><i>›</i><span id="heroPhoneCount">27 手机</span><i>›</i><span id="heroWalletCount">81 钱包</span><i>›</i><span id="heroAddressCount">4 链上地址</span></div>
+              <div class="spark-bars" id="netWorthSpark"><i style="height:50%"></i></div>
+            </article>
+            <article class="allocation-card">
+              <div class="card-heading"><div><p class="eyebrow">ALLOCATION</p><h2>资产分布</h2></div><div class="allocation-actions"><div class="segmented" id="allocationMode"><button class="active" data-allocation-mode="chain">按链</button><button data-allocation-mode="token">按币种</button></div><span class="security-note">只读汇总</span></div></div>
+              <div class="allocation-content"><div class="donut" id="allocationDonut"><div><strong id="allocationAssetCount">0</strong><small id="allocationUnitLabel">条链</small></div></div><div class="legend" id="allocationLegend"><div class="allocation-empty">暂无已报价资产</div></div></div>
+            </article>
+          </section>
+
+          <section class="metric-strip" data-view="overview">
+            <article><span class="metric-icon violet">♙</span><div><small>负责人</small><strong id="metricManagers">02</strong></div><em>独立汇总</em></article>
+            <article><span class="metric-icon green">▣</span><div><small>手机</small><strong id="metricPhones">27</strong></div><em>可自由添加</em></article>
+            <article><span class="metric-icon cyan">◎</span><div><small>OKX 钱包</small><strong id="metricWallets">81</strong></div><em>每台最多 10 个</em></article>
+            <article><span class="metric-icon amber">⌁</span><div><small>已导入地址</small><strong id="metricAddresses">08</strong></div><em id="metricChains">8 条链</em></article>
+          </section>
+
+          <section class="overview-operations" data-view="overview">
+            <article class="overview-operation-card"><div><p class="eyebrow">RISK CHECK</p><h3>女巫风险检查</h3></div><div class="overview-status-line" id="overviewRiskSummary"></div><button class="text-button" type="button" data-open-view="wallet-stats" data-overview-filter="pending">查看待检查钱包 →</button></article>
+            <article class="overview-operation-card"><div><p class="eyebrow">ACTIVITY PROGRESS</p><h3>活动执行进度</h3></div><div class="overview-status-line" id="overviewActivitySummary"></div><button class="text-button" type="button" data-open-view="wallet-stats">进入钱包管理 →</button></article>
+          </section>
+
+          <section class="section-block wallet-stats-section" id="wallet-stats" data-view="wallet-stats" hidden>
+            <div class="section-heading asset-heading"><div><p class="eyebrow">WALLET MANAGEMENT SYSTEM</p><h2>钱包管理系统</h2><p class="section-subhead">一个钱包一行；管理模板中的字段会自动成为可填写、可统计、可导出的列。</p></div><div class="table-actions"><button class="button secondary" id="statsManageActivitiesButton">☷ 字段与活动设置</button><button class="button secondary" id="exportWalletStatsButton">⇩ 导出 CSV</button></div></div>
+            <div class="wallet-stat-cards" id="walletStatCards"></div>
+            <div class="stats-analysis-grid">
+              <article class="stats-panel"><div class="stats-panel-heading"><div><p class="eyebrow">BY OWNER</p><h3>负责人检查汇总</h3></div><span class="security-note">按钱包统计</span></div><div class="stats-table-wrap"><table class="stats-table"><thead><tr><th>负责人</th><th>总数</th><th>无风险</th><th>疑似</th><th>已确认</th><th>未检查</th></tr></thead><tbody id="managerStatsBody"></tbody></table></div></article>
+              <article class="stats-panel"><div class="stats-panel-heading"><div><p class="eyebrow">CONFIGURABLE FIELD STATS</p><h3>字段统计情况</h3></div><label class="switch-label"><input type="checkbox" id="showArchivedActivities" /><span class="switch"></span>显示已归档</label></div><div class="stats-table-wrap"><table class="stats-table activity-stats-table"><thead><tr><th>模板 / 字段</th><th>已完成</th><th>进行中</th><th>风险</th><th>已填写</th><th>完成率</th></tr></thead><tbody id="activityStatsBody"></tbody></table></div></article>
+            </div>
+            <div class="matrix-panel">
+              <div class="matrix-heading"><div><p class="eyebrow">WALLET MATRIX</p><h3>钱包明细矩阵</h3></div><div class="matrix-tools"><div class="density-switch" id="matrixDensity"><button class="active" type="button" data-density="comfortable">舒适</button><button type="button" data-density="compact">紧凑</button></div><details class="column-picker"><summary>显示列</summary><div id="matrixColumnPicker"></div></details></div></div>
+              <div class="matrix-filters"><select class="inline-select" id="statsManagerFilter" aria-label="按负责人筛选"></select><select class="inline-select" id="statsPhoneFilter" aria-label="按手机筛选"></select><select class="inline-select" id="statsSybilFilter" aria-label="按女巫状态筛选"><option value="all">全部检查状态</option><option value="registered">已登记</option><option value="unreviewed">未登记</option><option value="pending">待检查</option><option value="normal">未发现风险</option><option value="suspected">疑似女巫</option><option value="confirmed">已确认女巫</option></select><label class="search-box"><span>⌕</span><input id="statsWalletSearch" type="search" placeholder="搜索钱包或手机" /></label></div>
+              <div class="bulk-status-bar"><label><input type="checkbox" id="selectAllStatsWallets" /> 全选当前页</label><strong id="selectedWalletCount">已选择 0 个钱包</strong><select class="inline-select" id="bulkStatusField"><option value="sybilStatus">女巫检查</option></select><select class="inline-select" id="bulkStatusValue"></select><button class="button secondary" id="applyBulkStatusButton" type="button">批量应用</button></div>
+              <div class="wallet-matrix-wrap"><table class="wallet-matrix"><thead id="walletMatrixHead"></thead><tbody id="walletMatrixBody"></tbody></table></div>
+              <div class="list-control" id="statsMatrixListControl" hidden></div>
+            </div>
+          </section>
+
+          <section class="section-block" id="managers" data-view="managers" hidden>
+            <div class="section-heading"><div><p class="eyebrow">OWNERS</p><h2>负责人汇总</h2></div><button class="button secondary" id="addManagerButton">＋ 添加负责人</button></div>
+            <div class="manager-grid" id="managerGrid"></div>
+            <div class="list-control" id="managerListControl" hidden></div>
+          </section>
+
+          <section class="section-block" id="phones" data-view="phones" hidden>
+            <div class="section-heading asset-heading"><div><p class="eyebrow">DEVICE REGISTRY</p><h2 id="phoneSectionTitle">手机管理</h2></div><div class="table-actions"><select class="inline-select" id="managerFilter" aria-label="按负责人筛选"></select><label class="search-box"><span>⌕</span><input id="phoneSearch" type="search" placeholder="搜索手机" /></label><button class="button secondary" id="addPhoneButton">＋ 添加手机</button></div></div>
+            <div class="phone-table-wrap"><table class="phone-table"><thead><tr><th>手机</th><th>负责人</th><th>钱包配置</th><th>链上地址</th><th>资产净值</th><th></th></tr></thead><tbody id="phoneTableBody"></tbody></table></div>
+            <div class="list-control" id="phoneListControl" hidden></div>
+          </section>
+
+          <section class="section-block address-section" id="addresses" data-view="addresses" hidden>
+            <div class="section-heading asset-heading"><div><p class="eyebrow">ADDRESS REGISTRY</p><h2>链上地址</h2></div><div class="table-actions"><select class="inline-select" id="addressPhoneFilter" aria-label="按手机筛选"></select><button class="button secondary" id="addressSectionAdd">＋ 添加链上地址</button></div></div>
+            <div class="address-list" id="addressList"></div>
+            <div class="list-control" id="addressListControl" hidden></div>
+          </section>
+
+          <section class="section-block" id="assets" data-view="assets" hidden>
+            <div class="section-heading asset-heading"><div><p class="eyebrow">ASSET DETAILS</p><h2>资产明细</h2></div><div class="table-actions"><button class="button secondary" id="exportAssetsButton">⇩ 导出当前列表</button><button class="button secondary" id="addTokenButton">＋ 添加币种</button><label class="search-box"><span>⌕</span><input id="assetSearch" type="search" placeholder="搜索币种或链" /></label><label class="switch-label"><input type="checkbox" id="smallBalanceToggle" /><span class="switch"></span>隐藏小额资产</label></div></div>
+            <div class="chain-filter" id="chainFilter"></div>
+            <div class="asset-table-wrap"><table class="asset-table"><thead><tr><th>资产</th><th>所在链</th><th>来源</th><th>持有量</th><th>24H</th><th>价值</th><th>操作</th></tr></thead><tbody id="assetTableBody"></tbody></table><div class="empty-state" id="emptyState" hidden>没有匹配的资产</div></div>
+            <div class="list-control" id="assetListControl" hidden></div>
+          </section>
+
+          <section class="section-block" id="networks" data-view="networks" hidden>
+            <div class="section-heading"><div><p class="eyebrow">SUPPORTED NETWORKS</p><h2>链配置</h2></div><button class="button secondary" id="addNetworkButton">＋ 导入自定义链</button></div>
+            <p class="network-intro">默认支持 Ethereum、Solana、Arbitrum、Base、Optimism、BNB Chain、Robinhood Chain 和 X Layer。</p>
+            <div class="network-grid" id="networkGrid"></div>
+            <div class="list-control" id="networkListControl" hidden></div>
+          </section>
+
+          <section class="section-block admin-section" id="users" data-view="users" hidden>
+            <div class="section-heading"><div><p class="eyebrow">ACCOUNT ADMINISTRATION</p><h2>用户与团队模式</h2><p class="section-subhead">单机使用无需注册或邀请码；只有需要多人共用这套实例时才开启团队模式。</p></div></div>
+            <article class="admin-settings-bar">
+              <div><strong>团队注册</strong><small>默认关闭。开启后，新成员必须使用一次性邀请码注册独立账户。</small></div>
+              <select class="inline-select" id="registrationModeSelect" aria-label="团队注册模式"><option value="disabled">关闭团队注册</option><option value="invite">开启邀请码注册</option></select>
+              <button class="button secondary" id="saveRegistrationMode" type="button">保存设置</button>
+            </article>
+            <div class="admin-grid">
+              <article class="admin-panel" id="invitePanel">
+                <div class="card-heading"><div><p class="eyebrow">ONE-TIME INVITE</p><h3>生成一次性邀请码</h3></div></div>
+                <p class="admin-mode-hint" id="inviteModeHint">开启团队注册后才能生成邀请码。</p>
+                <form class="invite-form" id="inviteForm"><input id="inviteLabel" maxlength="40" placeholder="备注，例如：李四" /><button class="button primary" type="submit">生成邀请码</button></form>
+                <div class="invite-result" id="inviteResult" hidden><code id="inviteCode"></code><button class="button secondary" id="copyInviteButton" type="button">复制</button><small>邀请码只显示这一次，请立即发送给对方。</small></div>
+                <div class="admin-list" id="inviteList"></div>
+                <div class="list-control" id="inviteListControl" hidden></div>
+              </article>
+              <article class="admin-panel">
+                <div class="card-heading"><div><p class="eyebrow">REGISTERED USERS</p><h3>已注册用户</h3></div></div>
+                <div class="admin-list" id="userList"></div>
+                <div class="list-control" id="userListControl" hidden></div>
+              </article>
+            </div>
+          </section>
+
+          <section class="section-block guide-section" id="guide" data-view="guide" hidden>
+            <div class="guide-hero">
+              <div>
+                <p class="eyebrow">HOW TO USE CHAINFOLIO</p>
+                <h1>从账户到活动，<br />把每个钱包管清楚。</h1>
+                <p class="guide-hero-copy">这套系统只做两件事：先建立清晰的账户结构并掌握资金状态，再以钱包为单位管理女巫检查、活动和任务进度。</p>
+              </div>
+              <div class="guide-hero-actions" aria-label="使用指南目录">
+                <button class="guide-topic-card active" type="button" data-guide-scroll="guide-account"><span>01</span><strong>账户管理</strong><small>建立归属，汇总资金</small></button>
+                <button class="guide-topic-card" type="button" data-guide-scroll="guide-activity"><span>02</span><strong>活动管理</strong><small>检查、任务与统计</small></button>
+                <button class="guide-topic-card" type="button" data-guide-scroll="guide-tools"><span>03</span><strong>常用工具</strong><small>Token、链与更新</small></button>
+              </div>
+            </div>
+
+            <div class="guide-principles">
+              <article><span>◎</span><div><strong>只读监控</strong><small>只输入公开地址，不需要助记词或私钥。</small></div></article>
+              <article><span>⌁</span><div><strong>按钱包记录</strong><small>每个钱包都有独立的检查、活动和备注。</small></div></article>
+              <article><span>▦</span><div><strong>逐层汇总</strong><small>所有数据最终回到你的总账户看板。</small></div></article>
+            </div>
+
+            <section class="guide-block" id="guide-account">
+              <div class="guide-block-heading"><span class="guide-index">01</span><div><p class="eyebrow">ACCOUNT MANAGEMENT</p><h2>先建立账户结构，再看资金状态</h2><p>把谁在管理、用哪台手机、哪个 OKX 钱包、哪些公开地址，逐级记录清楚。</p></div></div>
+              <div class="guide-flow" aria-label="账户管理步骤">
+                <article class="guide-step"><div class="guide-step-number">1</div><div class="guide-step-content"><span>第一步</span><h3>创建负责人</h3><p>负责人是资金和设备的归属人。比如张三、李四；系统会分别汇总他们名下的资产。</p><button class="guide-link" type="button" data-guide-action="add-manager">去添加负责人 →</button></div></article>
+                <article class="guide-step"><div class="guide-step-number">2</div><div class="guide-step-content"><span>第二步</span><h3>添加手机</h3><p>为每台实际设备指定负责人。手机可以自由增加，不需要预先设定固定数量。</p><button class="guide-link" type="button" data-guide-action="add-phone">去添加手机 →</button></div></article>
+                <article class="guide-step"><div class="guide-step-number">3</div><div class="guide-step-content"><span>第三步</span><h3>在手机内配置 OKX 钱包</h3><p>点击手机行中的“查看钱包”即可展开该手机的钱包；每台手机默认有 3 个钱包，可按实际情况增加到 10 个。</p><button class="guide-link" type="button" data-guide-action="open-wallets">查看手机内的钱包 →</button></div></article>
+                <article class="guide-step"><div class="guide-step-number">4</div><div class="guide-step-content"><span>第四步</span><h3>导入公开地址</h3><p>选择手机和钱包后导入地址。EVM 地址只需添加一次，即可覆盖已支持的多条 EVM 链。</p><button class="guide-link" type="button" data-guide-action="add-address">添加链上地址 →</button></div></article>
+                <article class="guide-step guide-step-result"><div class="guide-step-number">5</div><div class="guide-step-content"><span>完成后</span><h3>在看板掌握资金状态</h3><p>从总账户一路下钻到负责人、手机、钱包、地址和币种；看链/币种分布、净值变化和最新查询结果。</p><button class="guide-link" type="button" data-guide-action="open-overview">查看资产总览 →</button></div></article>
+              </div>
+              <div class="guide-note"><b>关于“实时”：</b>系统会随机安排地址更新，也支持按全部账户、负责人、手机或钱包手动更新。看板显示的是最近一次成功查询到的链上状态。</div>
+            </section>
+
+            <section class="guide-block" id="guide-activity">
+              <div class="guide-block-heading"><span class="guide-index">02</span><div><p class="eyebrow">ACTIVITY MANAGEMENT</p><h2>按钱包管理检查、活动和任务</h2><p>活动模板创建一次，全账户的钱包都会出现对应项目；每个钱包独立填写自己的状态。</p></div></div>
+              <div class="guide-activity-grid">
+                <article class="guide-feature-card guide-feature-primary"><p class="eyebrow">BUILT-IN</p><h3>女巫检查</h3><p>系统内置未登记、待检查、未发现风险、疑似女巫、已确认女巫五种状态。你可以在钱包资料中填写，并在钱包管理系统中筛选、统计和批量修改。</p><div class="guide-status-row"><span>未登记</span><span>待检查</span><span>正常</span><span>疑似</span><span>确认</span></div><button class="button secondary" type="button" data-guide-action="open-wallet-stats">进入钱包管理</button></article>
+                <article class="guide-feature-card"><p class="eyebrow">WALLET PROFILE</p><h3>钱包资料</h3><p>在手机列表展开钱包后，可以自定义钱包名称、钱包创建时间、判断依据和备注。创建时间和女巫状态都只是内部记录，不会触发任何链上操作。</p><button class="guide-link" type="button" data-guide-action="open-wallets">在手机内查看钱包资料 →</button></article>
+                <article class="guide-feature-card"><p class="eyebrow">GLOBAL TEMPLATE</p><h3>自定义活动 / 任务</h3><p>例如空投活动、交互任务或资格检查。每个模板可自定义下拉、勾选、日期、文本和数字字段，并定义哪些选项计为完成、进行中或风险。</p><button class="guide-link" type="button" data-guide-action="manage-activities">设置管理字段 →</button></article>
+              </div>
+              <div class="guide-outcome"><div><span>你最终能看到</span><strong>女巫与自定义字段的全局统计</strong></div><p>多少钱包待检查、疑似或已确认；每位负责人名下的检查情况；以及每个自定义字段的完成、进行中、风险和已填写数量。需要继续分析时，可导出 CSV。</p><button class="guide-link" type="button" data-guide-action="open-wallet-stats">去钱包管理 →</button></div>
+            </section>
+
+            <section class="guide-block" id="guide-tools">
+              <div class="guide-block-heading"><span class="guide-index">03</span><div><p class="eyebrow">COMMON TOOLS</p><h2>需要时再使用的常用工具</h2><p>这些功能补充资产识别、链配置、显示偏好和账户管理，不影响主流程。</p></div></div>
+              <div class="guide-tool-grid">
+                <article><span class="guide-tool-icon">◉</span><h3>添加自定义 Token</h3><p>输入合约地址或 Mint 地址，系统会识别名称、符号和精度。添加一次，即可扫描当前账户的全部匹配地址。</p><button class="guide-link" type="button" data-guide-action="add-token">添加币种 →</button></article>
+                <article><span class="guide-tool-icon">◇</span><h3>导入自定义链</h3><p>填写网络名称、Chain ID 和可信 HTTPS RPC。已导入的 EVM 地址会自动复用到新链。</p><button class="guide-link" type="button" data-guide-action="add-network">导入区块链 →</button></article>
+                <article><span class="guide-tool-icon">↻</span><h3>更新资产</h3><p>自动更新采用随机计划；需要即时核对时，可以仅更新相关负责人、手机或钱包，减少无关查询。</p><button class="guide-link" type="button" data-guide-action="manual-sync">手动更新 →</button></article>
+                <article><span class="guide-tool-icon">◌</span><h3>隐私与显示</h3><p>右上角可隐藏金额，适合共享屏幕；字体可调为 90%、100%、115% 或 130%，偏好保存在本机。</p><button class="guide-link" type="button" data-guide-action="open-overview">回到资产总览 →</button></article>
+              </div>
+              <div class="guide-safety"><span>✓</span><div><strong>最后记住：系统只需要公开地址。</strong><p>不要输入助记词、私钥、签名信息或 OKX 密码。自定义 RPC 请选择可信来源，导出 CSV 前确认接收对象。</p></div></div>
+            </section>
+
+            <section class="guide-author" aria-labelledby="guideAuthorTitle">
+              <div class="guide-author-main">
+                <p class="eyebrow">AUTHOR & COMMUNITY</p>
+                <h2 id="guideAuthorTitle">感谢大家支持超级韭菜训练营</h2>
+                <p>这套工具由 <strong>蕉易猿-527</strong> 制作，用于管理公开钱包地址、资产和活动记录。它不需要助记词或私钥；更重视数据控制权的用户，也可以自行部署。</p>
+                <div class="guide-author-links">
+                  <a class="button primary" href="https://x.com/Eth527" target="_blank" rel="noopener noreferrer">进入 X（Twitter）</a>
+                  <a class="button secondary" href="https://t.me/Eth527" target="_blank" rel="noopener noreferrer">加入 Telegram</a>
+                </div>
+              </div>
+              <aside class="guide-invite-card">
+                <span>OKX WALLET INVITE</span>
+                <h3>还没有 OKX 钱包？</h3>
+                <p>如需注册或体验 OKX Wallet，可填写作者邀请码。使用与否完全由你决定。</p>
+                <div class="guide-invite-code"><code>527527</code><button class="copy-button" type="button" data-author-copy="527527">复制邀请码</button></div>
+                <small>透明说明：邀请码可能为作者带来平台推广奖励，不影响本工具的使用与自部署。</small>
+              </aside>
+              <div class="guide-self-host"><span>⌘</span><div><strong>开源与自部署</strong><p>项目采用 AGPL-3.0 协议；公开地址之外的归属、标签、备注与活动记录仍可能敏感。自行部署时，数据和备份由你自己掌控。<a href="https://github.com/xuzhiliang12/chainfolio" target="_blank" rel="noopener noreferrer">查看源代码与安装包</a></p></div></div>
+            </section>
+          </section>
+        </div>
+      </main>
+    </div>
+    <button class="mobile-nav-overlay" id="mobileNavOverlay" type="button" aria-label="关闭导航" hidden></button>
+
+    <div class="modal-backdrop" id="addressModal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="addressModalTitle">
+        <button class="modal-close" data-close="addressModal" aria-label="关闭">×</button><p class="eyebrow">ADD WATCH ADDRESS</p><h2 id="addressModalTitle">添加链上地址</h2>
+        <p class="modal-intro">选择 EVM 地址时只需填写一次，系统会自动同步 Ethereum、BNB Chain、Base、Arbitrum、Optimism、Robinhood Chain、X Layer 及自定义 EVM 链。</p>
+        <form id="addressForm">
+          <div class="form-row"><label>手机<select id="addressPhone" required></select></label><label>OKX 钱包<select id="addressWallet" required></select></label></div>
+          <label>地址类型<select id="addressChain" required></select></label>
+          <label>公开地址<input id="addressValue" required placeholder="输入 EVM 或 Solana 公开地址" /></label>
+          <div class="safe-tip"><span>✓</span><div><strong>只需要公开地址</strong><p>请勿输入助记词、私钥或 OKX 密码。</p></div></div>
+          <input type="hidden" id="editAddressId" /><button class="button primary submit-button" id="addressSubmit" type="submit">添加并更新</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="managerModal" hidden>
+      <div class="modal compact-modal" role="dialog" aria-modal="true" aria-labelledby="managerModalTitle">
+        <button class="modal-close" data-close="managerModal" aria-label="关闭">×</button><p class="eyebrow">NEW OWNER</p><h2 id="managerModalTitle">添加负责人</h2><p class="modal-intro">负责人用于汇总其名下所有手机、钱包、链上地址和资产。</p>
+        <form id="managerForm"><input type="hidden" id="editManagerId" /><label>负责人姓名<input id="managerName" required maxlength="24" placeholder="例如：王五" /></label><button class="button primary submit-button" id="managerSubmit" type="submit">添加负责人</button></form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="phoneModal" hidden>
+      <div class="modal compact-modal" role="dialog" aria-modal="true" aria-labelledby="phoneModalTitle">
+        <button class="modal-close" data-close="phoneModal" aria-label="关闭">×</button><p class="eyebrow">NEW DEVICE</p><h2 id="phoneModalTitle">添加手机</h2><p class="modal-intro">每台手机必须指定一位负责人，默认创建 3 个 OKX 钱包，之后可增加到 10 个。</p>
+        <form id="phoneForm"><input type="hidden" id="editPhoneId" /><label>手机名称<input id="phoneNameInput" required maxlength="24" placeholder="例如：工作手机 A" /></label><label>负责人<select id="phoneManager" required></select></label><button class="button primary submit-button" id="phoneSubmit" type="submit">添加手机</button></form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop drawer-backdrop" id="walletModal" hidden>
+      <div class="modal wallet-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="walletModalTitle">
+        <button class="modal-close" data-close="walletModal" aria-label="关闭">×</button><p class="eyebrow">WALLET PROFILE</p><h2 id="walletModalTitle">修改钱包资料</h2><p class="modal-intro">生成时间和女巫状态均为人工记录，不会根据这些标记执行链上操作。</p>
+        <form id="walletForm"><input type="hidden" id="editWalletPhone" /><input type="hidden" id="editWalletNumber" /><label>钱包名称<input id="walletNameInput" required maxlength="32" placeholder="例如：OKX 主钱包" /></label><div class="form-row"><label>钱包生成时间<input id="walletCreatedAt" type="datetime-local" /></label><label>女巫检查<select id="walletSybilStatus"><option value="unreviewed">未登记</option><option value="pending">待检查</option><option value="normal">未发现风险</option><option value="suspected">疑似女巫</option><option value="confirmed">已确认女巫</option></select></label></div><fieldset class="activity-fieldset"><legend>管理字段与活动记录</legend><div class="wallet-activity-fields" id="walletActivityFields"></div><small class="field-status">模板全账户通用；这里填写的是当前钱包的独立记录。字段可在“钱包管理系统”中随时配置。</small></fieldset><label>判断依据 / 备注<textarea id="walletNote" maxlength="200" rows="4" placeholder="例如：同批创建、交互路径高度相似，暂列为疑似"></textarea><small class="field-status">最多 200 个字符，仅用于内部人工记录</small></label><div class="drawer-actions"><button class="button secondary" id="previousWalletButton" type="button">← 上一个</button><button class="button primary" type="submit">保存钱包资料</button><button class="button secondary" id="nextWalletButton" type="button">下一个 →</button></div></form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="activityModal" hidden>
+      <div class="modal activity-modal" role="dialog" aria-modal="true" aria-labelledby="activityModalTitle">
+        <button class="modal-close" data-close="activityModal" aria-label="关闭">×</button><p class="eyebrow">CONFIGURABLE WALLET MANAGEMENT</p><h2 id="activityModalTitle">字段与活动设置</h2><p class="modal-intro">一个模板对应一组通用的钱包字段。创建一次，所有钱包都会出现；字段内容、选项和统计口径都由你定义。</p>
+        <form id="activityForm" class="activity-form"><input type="hidden" id="editActivityId" /><div class="form-row"><label>模板名称<input id="activityName" required maxlength="40" placeholder="例如：OKX Cryptopedia 第 5 期" /></label><label>说明（可选）<input id="activityDescription" maxlength="160" placeholder="例如：记录参与、完成与领取情况" /></label></div><div class="field-builder-heading"><div><strong>管理字段</strong><small>可添加下拉、勾选、日期、文本和数字字段</small></div><button class="button secondary compact-button" type="button" id="addActivityFieldButton">+ 添加字段</button></div><div class="activity-field-builder" id="activityFieldBuilder"></div><button class="button primary" id="activitySubmit" type="submit">创建管理模板</button></form>
+        <div class="activity-template-list" id="activityTemplateList"></div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="networkModal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="networkModalTitle">
+        <button class="modal-close" data-close="networkModal" aria-label="关闭">×</button><p class="eyebrow">CUSTOM EVM NETWORK</p><h2 id="networkModalTitle">导入自定义区块链</h2><p class="modal-intro">填写公开 RPC 配置即可加入 EVM 兼容链。</p>
+        <form id="networkForm"><div class="form-row"><label>网络名称<input id="networkName" required placeholder="例如：Linea" /></label><label>原生币符号<input id="networkSymbol" required maxlength="10" placeholder="ETH" /></label></div><label>Chain ID<input id="networkChainId" required inputmode="numeric" placeholder="例如：59144" /></label><label>RPC URL<input id="networkRpc" required type="url" placeholder="https://..." /></label><button class="button primary submit-button" type="submit">导入区块链</button></form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="tokenModal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tokenModalTitle">
+        <button class="modal-close" data-close="tokenModal" aria-label="关闭">×</button><p class="eyebrow">CUSTOM TOKEN</p><h2 id="tokenModalTitle">添加自定义币种</h2>
+        <p class="modal-intro">用于补充系统没有自动识别的 EVM 合约币或 Solana SPL 币。添加一次后，会扫描当前账户中该链的全部地址，以后新增地址也会自动纳入。</p>
+        <form id="tokenForm">
+          <label>所在链<select id="tokenChain" required></select></label>
+          <label>合约地址 / Mint 地址<div class="input-action-row"><input id="tokenContract" required placeholder="0x... 或 Solana Mint 地址" /><button class="button secondary compact-button" id="detectTokenButton" type="button">自动识别</button></div><small class="field-status" id="tokenDetectStatus">输入后会自动读取名称、符号和精度</small></label>
+          <div class="form-row"><label>币种符号<input id="tokenSymbol" required maxlength="16" placeholder="例如：PEPE" /></label><label>币种名称<input id="tokenName" maxlength="40" placeholder="可选" /></label></div>
+          <div class="form-row"><label>精度 Decimals<input id="tokenDecimals" required type="number" min="0" max="36" value="18" /></label><label>单价 USD（留空自动报价）<input id="tokenPrice" type="number" min="0" step="any" placeholder="自动选择流动性最高的报价" /></label></div>
+          <div class="safe-tip"><span>✓</span><div><strong>全账户识别与自动报价</strong><p>系统只读取公开链上余额，并优先采用流动性最高的 DEX 美元报价；找不到报价时显示“暂无报价”，也可以手动填写单价覆盖。</p></div></div>
+          <input type="hidden" id="editTokenId" /><button class="button primary submit-button" id="tokenSubmit" type="submit">添加并同步</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="syncModal" hidden>
+      <div class="modal compact-modal" role="dialog" aria-modal="true" aria-labelledby="syncModalTitle">
+        <button class="modal-close" data-close="syncModal" aria-label="关闭">×</button><p class="eyebrow">MANUAL SYNC</p><h2 id="syncModalTitle">选择更新范围</h2>
+        <p class="modal-intro">日常自动更新会分散在一小时内执行。这里可以只更新需要查看的范围，减少不必要的查询。</p>
+        <form id="syncForm">
+          <label>更新范围<select id="syncScope"><option value="all">全部账户</option><option value="manager">指定负责人</option><option value="phone">指定手机</option><option value="wallet">指定钱包</option></select></label>
+          <label id="syncManagerField" hidden>负责人<select id="syncManager"></select></label>
+          <label id="syncPhoneField" hidden>手机<select id="syncPhone"></select></label>
+          <label id="syncWalletField" hidden>钱包<select id="syncWallet"></select></label>
+          <div class="safe-tip"><span>↻</span><div><strong>只读更新</strong><p>更新只读取公开链上数据，不会签名或发送交易。</p></div></div>
+          <button class="button primary submit-button" type="submit">开始更新</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="accountModal" hidden>
+      <div class="modal compact-modal" role="dialog" aria-modal="true" aria-labelledby="accountModalTitle">
+        <button class="modal-close" data-close="accountModal" aria-label="关闭">×</button><p class="eyebrow">ACCOUNT SECURITY</p><h2 id="accountModalTitle">账户设置</h2>
+        <p class="modal-intro">修改密码后，其他设备上的旧登录会立即失效。</p>
+        <form id="passwordForm">
+          <label>当前密码<input id="currentPassword" required type="password" autocomplete="current-password" maxlength="128" /></label>
+          <label>新密码<input id="newPassword" required type="password" autocomplete="new-password" minlength="10" maxlength="128" /></label>
+          <label>确认新密码<input id="newPasswordConfirm" required type="password" autocomplete="new-password" minlength="10" maxlength="128" /></label>
+          <button class="button primary submit-button" type="submit">更新密码</button>
+          <button class="button secondary submit-button" id="logoutButton" type="button">退出登录</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="./app.js"></script>
+  </body>
+</html>

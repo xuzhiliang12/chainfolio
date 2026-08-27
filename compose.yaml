@@ -1,0 +1,17 @@
+name: chainfolio
+
+services:
+  chainfolio:
+    image: ghcr.io/xuzhiliang12/chainfolio:latest
+    container_name: chainfolio
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4173:4173"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 4173
+      COOKIE_SECURE: "false"
+    volumes:
+      - ./data:/app/data
+    security_opt:
+      - no-new-privileges:true

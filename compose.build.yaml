@@ -1,0 +1,19 @@
+name: chainfolio-local-build
+
+services:
+  chainfolio:
+    build:
+      context: .
+    image: chainfolio:local
+    container_name: chainfolio-local
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4173:4173"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 4173
+      COOKIE_SECURE: "false"
+    volumes:
+      - ./data:/app/data
+    security_opt:
+      - no-new-privileges:true
