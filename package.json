@@ -1,6 +1,6 @@
 {
   "name": "chainfolio",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Self-hosted, watch-only multi-chain asset and wallet activity manager",
   "private": false,
   "license": "AGPL-3.0-or-later",
