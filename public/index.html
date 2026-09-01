@@ -147,6 +147,7 @@
           </section>
 
           <section class="section-block" id="assets" data-view="assets" hidden>
+            <p class="section-subhead asset-discovery-note">自动发现钱包中的原生币和代币；USDT、USDC、USDG 已按已确认的常用主网合约自动纳入。没有可靠报价的代币仍会显示数量，但价值标记为暂无报价。</p>
             <div class="section-heading asset-heading"><div><p class="eyebrow">ASSET DETAILS</p><h2>资产明细</h2></div><div class="table-actions"><button class="button secondary" id="exportAssetsButton">⇩ 导出当前列表</button><button class="button secondary" id="addTokenButton">＋ 添加币种</button><label class="search-box"><span>⌕</span><input id="assetSearch" type="search" placeholder="搜索币种或链" /></label><label class="switch-label"><input type="checkbox" id="smallBalanceToggle" /><span class="switch"></span>隐藏小额资产</label></div></div>
             <div class="chain-filter" id="chainFilter"></div>
             <div class="asset-table-wrap"><table class="asset-table"><thead><tr><th>资产</th><th>所在链</th><th>来源</th><th>持有量</th><th>24H</th><th>价值</th><th>操作</th></tr></thead><tbody id="assetTableBody"></tbody></table><div class="empty-state" id="emptyState" hidden>没有匹配的资产</div></div>
@@ -216,6 +217,7 @@
               <div class="guide-note"><b>关于“实时”：</b>系统会随机安排地址更新，也支持按全部账户、负责人、手机或钱包手动更新。看板显示的是最近一次成功查询到的链上状态。</div>
             </section>
 
+            <div class="guide-note"><b>自动发现资产：</b>导入地址后系统会查询原生币和代币余额；系统稳定币无需逐个添加。对于索引服务或报价服务无法确认的资产，仍可在“添加自定义币种”中补充。</div>
             <section class="guide-block" id="guide-activity">
               <div class="guide-block-heading"><span class="guide-index">02</span><div><p class="eyebrow">ACTIVITY MANAGEMENT</p><h2>按钱包管理检查、活动和任务</h2><p>活动模板创建一次，全账户的钱包都会出现对应项目；每个钱包独立填写自己的状态。</p></div></div>
               <div class="guide-activity-grid">
@@ -330,12 +332,13 @@
     <div class="modal-backdrop" id="syncModal" hidden>
       <div class="modal compact-modal" role="dialog" aria-modal="true" aria-labelledby="syncModalTitle">
         <button class="modal-close" data-close="syncModal" aria-label="关闭">×</button><p class="eyebrow">MANUAL SYNC</p><h2 id="syncModalTitle">选择更新范围</h2>
-        <p class="modal-intro">日常自动更新会分散在一小时内执行。这里可以只更新需要查看的范围，减少不必要的查询。</p>
+        <p class="modal-intro">日常自动更新会分散在一小时内执行。这里可以只更新需要查看的范围，减少不必要的查询。系统会优先使用代币索引服务，公共 RPC 仅作为后备。</p>
         <form id="syncForm">
           <label>更新范围<select id="syncScope"><option value="all">全部账户</option><option value="manager">指定负责人</option><option value="phone">指定手机</option><option value="wallet">指定钱包</option></select></label>
           <label id="syncManagerField" hidden>负责人<select id="syncManager"></select></label>
           <label id="syncPhoneField" hidden>手机<select id="syncPhone"></select></label>
           <label id="syncWalletField" hidden>钱包<select id="syncWallet"></select></label>
+          <label class="checkbox-row"><input id="syncDeepDiscovery" type="checkbox" /><span><strong>深度补全代币</strong><small>公共 RPC 漏掉老币种时使用；会扫描更长历史，建议按手机或钱包执行</small></span></label>
           <div class="safe-tip"><span>↻</span><div><strong>只读更新</strong><p>更新只读取公开链上数据，不会签名或发送交易。</p></div></div>
           <button class="button primary submit-button" type="submit">开始更新</button>
         </form>

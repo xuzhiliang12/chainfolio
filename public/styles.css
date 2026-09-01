@@ -404,6 +404,11 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -.025em; }
 .compact-empty { padding: 18px; }
 .safe-tip { padding: 12px; border: 1px solid rgba(184,255,98,.14); border-radius: 8px; display: flex; gap: 10px; color: var(--accent); background: rgba(184,255,98,.04); }
 .safe-tip p { margin: 3px 0 0; color: var(--muted); font-size: 10px; }
+.checkbox-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0 2px; cursor: pointer; }
+.checkbox-row input { width: 16px; height: 16px; margin-top: 2px; accent-color: var(--accent); }
+.checkbox-row span { display: grid; gap: 3px; }
+.checkbox-row strong { color: var(--text); font-size: 12px; }
+.checkbox-row small { color: var(--muted); font-size: 10px; line-height: 1.5; }
 .submit-button { margin-top: 4px; width: 100%; }
 .toast { position: fixed; right: 24px; bottom: 24px; z-index: 40; padding: 12px 16px; border: 1px solid #384039; border-radius: 8px; color: #dfe5e1; background: #171b18; font-size: 11px; box-shadow: 0 12px 40px rgba(0,0,0,.25); opacity: 0; transform: translateY(8px); pointer-events: none; transition: .2s; }
 .toast.show { opacity: 1; transform: none; }

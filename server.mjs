@@ -21,6 +21,15 @@ const RANDOM_REFRESH_MAX_HOURS = 24;
 const RANDOM_CHECK_MIN_MINUTES = 12;
 const RANDOM_CHECK_MAX_MINUTES = 37;
 const RANDOM_BATCH_MAX_ADDRESSES = 8;
+const TOKEN_DISCOVERY_MAX_TOKENS = Math.min(1_000, Math.max(10, Number(process.env.TOKEN_DISCOVERY_MAX_TOKENS) || 250));
+const TOKEN_DISCOVERY_HISTORY_BLOCKS = Math.min(5_000_000, Math.max(10_000, Number(process.env.TOKEN_DISCOVERY_HISTORY_BLOCKS) || 500_000));
+const TOKEN_DISCOVERY_LOG_CHUNK = Math.min(100_000, Math.max(5_000, Number(process.env.TOKEN_DISCOVERY_LOG_CHUNK) || 50_000));
+const TOKEN_DISCOVERY_FULL_HISTORY = process.env.TOKEN_DISCOVERY_FULL_HISTORY === 'true';
+const TOKEN_DISCOVERY_MAX_LOGS = Math.min(100_000, Math.max(100, Number(process.env.TOKEN_DISCOVERY_MAX_LOGS) || 20_000));
+const TOKEN_DISCOVERY_MIN_LOG_CHUNK = 1_000;
+const ETHERSCAN_API_KEY = String(process.env.ETHERSCAN_API_KEY || '').trim();
+const ETHERSCAN_API_BASE = String(process.env.ETHERSCAN_API_BASE || 'https://api.etherscan.io/v2/api').trim();
+const TOKEN_INDEXER_TIMEOUT_MS = Math.min(30_000, Math.max(3_000, Number(process.env.TOKEN_INDEXER_TIMEOUT_MS) || 12_000));
 const SESSION_MAX_AGE = 7 * 24 * HOUR;
 const scryptAsync = promisify(scrypt);
 
@@ -53,24 +62,71 @@ function nextBatchSchedule(addresses, nextCheckAt = null) {
 }
 
 const networkCatalog = [
-  { name: 'Ethereum', symbol: 'ETH', type: 'EVM', decimals: 18, rpc: process.env.ETHEREUM_RPC_URL || ['https://cloudflare-eth.com', 'https://ethereum-rpc.publicnode.com'], priceId: 'ethereum', dexScreenerId: 'ethereum' },
+  { name: 'Ethereum', symbol: 'ETH', type: 'EVM', decimals: 18, chainId: '1', blockscoutApi: process.env.ETHEREUM_BLOCKSCOUT_API || 'https://eth.blockscout.com/api/v2', rpc: process.env.ETHEREUM_RPC_URL || ['https://cloudflare-eth.com', 'https://ethereum-rpc.publicnode.com'], priceId: 'ethereum', dexScreenerId: 'ethereum' },
   { name: 'Solana', symbol: 'SOL', type: 'SVM', decimals: 9, rpc: process.env.SOLANA_RPC_URL || ['https://api.mainnet-beta.solana.com', 'https://solana-rpc.publicnode.com'], priceId: 'solana', dexScreenerId: 'solana' },
-  { name: 'Arbitrum', symbol: 'ETH', type: 'EVM', decimals: 18, rpc: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc', priceId: 'ethereum', dexScreenerId: 'arbitrum' },
-  { name: 'Base', symbol: 'ETH', type: 'EVM', decimals: 18, rpc: process.env.BASE_RPC_URL || 'https://mainnet.base.org', priceId: 'ethereum', dexScreenerId: 'base' },
-  { name: 'Optimism', symbol: 'ETH', type: 'EVM', decimals: 18, rpc: process.env.OPTIMISM_RPC_URL || 'https://mainnet.optimism.io', priceId: 'ethereum', dexScreenerId: 'optimism' },
-  { name: 'BNB Chain', symbol: 'BNB', type: 'EVM', decimals: 18, rpc: process.env.BNB_RPC_URL || 'https://bsc-dataseed.bnbchain.org', priceId: 'binancecoin', dexScreenerId: 'bsc' },
-  { name: 'Robinhood Chain', symbol: 'ETH', type: 'EVM', decimals: 18, rpc: process.env.ROBINHOOD_RPC_URL || 'https://rpc.mainnet.chain.robinhood.com', priceId: 'ethereum', dexScreenerId: null },
-  { name: 'X Layer', symbol: 'OKB', type: 'EVM', decimals: 18, rpc: process.env.XLAYER_RPC_URL || 'https://rpc.xlayer.tech', priceId: 'okb', dexScreenerId: 'xlayer' }
+  { name: 'Arbitrum', symbol: 'ETH', type: 'EVM', decimals: 18, chainId: '42161', blockscoutApi: process.env.ARBITRUM_BLOCKSCOUT_API || 'https://arbitrum.blockscout.com/api/v2', rpc: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc', priceId: 'ethereum', dexScreenerId: 'arbitrum' },
+  { name: 'Base', symbol: 'ETH', type: 'EVM', decimals: 18, chainId: '8453', blockscoutApi: process.env.BASE_BLOCKSCOUT_API || 'https://base.blockscout.com/api/v2', rpc: process.env.BASE_RPC_URL || 'https://mainnet.base.org', priceId: 'ethereum', dexScreenerId: 'base' },
+  { name: 'Optimism', symbol: 'ETH', type: 'EVM', decimals: 18, chainId: '10', blockscoutApi: process.env.OPTIMISM_BLOCKSCOUT_API || 'https://optimism.blockscout.com/api/v2', rpc: process.env.OPTIMISM_RPC_URL || 'https://mainnet.optimism.io', priceId: 'ethereum', dexScreenerId: 'optimism' },
+  { name: 'BNB Chain', symbol: 'BNB', type: 'EVM', decimals: 18, chainId: '56', rpc: process.env.BNB_RPC_URL || 'https://bsc-dataseed.bnbchain.org', priceId: 'binancecoin', dexScreenerId: 'bsc' },
+  { name: 'Robinhood Chain', symbol: 'ETH', type: 'EVM', decimals: 18, chainId: '4663', blockscoutApi: process.env.ROBINHOOD_BLOCKSCOUT_API || 'https://robinhoodchain.blockscout.com/api/v2', rpc: process.env.ROBINHOOD_RPC_URL || 'https://rpc.mainnet.chain.robinhood.com', priceId: 'ethereum', dexScreenerId: null },
+  { name: 'X Layer', symbol: 'OKB', type: 'EVM', decimals: 18, chainId: '196', rpc: process.env.XLAYER_RPC_URL || 'https://rpc.xlayer.tech', priceId: 'okb', dexScreenerId: 'xlayer' }
 ];
 
-const AUTO_PRICE_SOURCES = new Set(['dexscreener', 'stablecoin-fallback']);
-const trustedStablecoinFallbacks = new Map([
-  ['x layer|0x4ae46a509f6b1d9056937ba4500cb143933d2dc8', {
-    symbol: 'USDG',
-    price: 1,
-    url: 'https://docs.paxos.com/guides/stablecoin/usdg/mainnet'
-  }]
-]);
+// The catalog is intentionally limited to deployments whose contract/mint is known.
+// Unsupported chain/token combinations are not guessed: users can still add them as
+// custom tokens when they have verified the address themselves.
+const stablecoinCatalog = [
+  { chain: 'Ethereum', symbol: 'USDT', name: 'Tether USD', decimals: 6, contract: '0xdAC17F958D2ee523a2206206994597C13D831ec7', url: 'https://tether.to/en/supported-protocols/' },
+  { chain: 'Ethereum', symbol: 'USDC', name: 'USD Coin', decimals: 6, contract: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', url: 'https://developers.circle.com/stablecoins/usdc-contract-addresses' },
+  { chain: 'Ethereum', symbol: 'USDG', name: 'Global Dollar', decimals: 6, contract: '0xe343167631d89B6Ffc58B88d6b7fB0228795491D', url: 'https://docs.paxos.com/guides/stablecoin/usdg/mainnet' },
+  { chain: 'Arbitrum', symbol: 'USDT', name: 'Tether USD (USDT0)', decimals: 6, contract: '0xFd086bC7CD5C481dcc9C85ebe478A1C0b69FCbb9', url: 'https://docs.usdt0.to/technical-documentation/developer/' },
+  { chain: 'Arbitrum', symbol: 'USDC', name: 'USD Coin', decimals: 6, contract: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', url: 'https://developers.circle.com/stablecoins/usdc-contract-addresses' },
+  { chain: 'Arbitrum', symbol: 'USDG', name: 'Global Dollar', decimals: 6, contract: '0x004B506865409877C9fA29bfb1ebA929984B9bbC', url: 'https://docs.paxos.com/guides/stablecoin/usdg/mainnet' },
+  { chain: 'Base', symbol: 'USDC', name: 'USD Coin', decimals: 6, contract: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', url: 'https://developers.circle.com/stablecoins/usdc-contract-addresses' },
+  { chain: 'Optimism', symbol: 'USDT', name: 'Tether USD', decimals: 6, contract: '0x94b008aA00579c1307B0EF2c499aD98a8ce58e58', url: 'https://tether.to/en/supported-protocols/' },
+  { chain: 'Optimism', symbol: 'USDC', name: 'USD Coin', decimals: 6, contract: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85', url: 'https://developers.circle.com/stablecoins/usdc-contract-addresses' },
+  { chain: 'BNB Chain', symbol: 'USDT', name: 'Tether USD (BEP-20)', decimals: 18, contract: '0x55d398326f99059fF775485246999027B3197955', url: 'https://tether.to/en/supported-protocols/' },
+  { chain: 'BNB Chain', symbol: 'USDC', name: 'USD Coin (Binance-Peg)', decimals: 18, contract: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', url: 'https://www.bnbchain.org/en/assets' },
+  { chain: 'Solana', symbol: 'USDT', name: 'Tether USD', decimals: 6, contract: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', url: 'https://tether.to/en/supported-protocols/' },
+  { chain: 'Solana', symbol: 'USDC', name: 'USD Coin', decimals: 6, contract: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', url: 'https://developers.circle.com/stablecoins/usdc-contract-addresses' },
+  { chain: 'Solana', symbol: 'USDG', name: 'Global Dollar', decimals: 6, contract: '2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH', url: 'https://docs.paxos.com/guides/stablecoin/usdg/mainnet' },
+  { chain: 'Robinhood Chain', symbol: 'USDG', name: 'Global Dollar', decimals: 6, contract: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168', url: 'https://docs.robinhood.com/chain/contracts/' },
+  { chain: 'X Layer', symbol: 'USDT', name: 'Tether USD (USDT0)', decimals: 6, contract: '0x779Ded0c9e1022225f8E0630b35a9b54bE713736', url: 'https://www.okx.com/en-us/help/usdt0-faq' },
+  { chain: 'X Layer', symbol: 'USDC', name: 'USD Coin', decimals: 6, contract: '0xB6CEceAB302E2E4948951eE7843FC24E92933061', url: 'https://developers.circle.com/stablecoins/usdc-contract-addresses' },
+  { chain: 'X Layer', symbol: 'USDG', name: 'Global Dollar', decimals: 6, contract: '0x4ae46a509F6b1D9056937BA4500cb143933D2dc8', url: 'https://docs.paxos.com/guides/stablecoin/usdg/mainnet' }
+];
+
+const AUTO_PRICE_SOURCES = new Set(['dexscreener', 'stablecoin-fallback', 'stablecoin-catalog']);
+const trustedStablecoinFallbacks = new Map(stablecoinCatalog.map(item => [
+  `${item.chain.toLowerCase()}|${item.contract.toLowerCase()}`,
+  { symbol: item.symbol, price: 1, url: item.url }
+]));
+
+function stablecoinTokenDefinitions() {
+  return stablecoinCatalog.map(item => ({
+    id: `SC-${item.chain.replace(/[^a-z0-9]/gi, '').slice(0, 8).toUpperCase()}-${item.symbol}`,
+    scope: 'all',
+    chain: item.chain,
+    contract: item.contract,
+    symbol: item.symbol,
+    name: item.name,
+    decimals: item.decimals,
+    priceMode: 'auto',
+    manualPrice: null,
+    price: null,
+    quoteSource: 'stablecoin-fallback',
+    status: 'pending',
+    system: true,
+    category: 'stablecoin',
+    source: 'stablecoin-catalog',
+    sourceUrl: item.url
+  }));
+}
+
+function stablecoinDefinition(chain, contract) {
+  const normalized = String(contract || '').toLowerCase();
+  return stablecoinCatalog.find(item => item.chain === chain && item.contract.toLowerCase() === normalized) || null;
+}
 
 function getTrustedStablecoinFallback(network, contract) {
   const definition = trustedStablecoinFallbacks.get(`${String(network?.name || '').toLowerCase()}|${String(contract || '').toLowerCase()}`);
@@ -111,12 +167,12 @@ function initialState() {
   const now = Date.now();
   const total = assets.reduce((sum, asset) => sum + (Number.isFinite(Number(asset.value)) ? Number(asset.value) : 0), 0);
   for (const address of addresses) address.nextSyncAt = randomRefreshAt(now);
-  return { version: 12, managers, phones, walletCounts, walletNames: {}, walletMetadata: {}, walletActivityTemplates: [], walletActivityStatuses: {}, addresses, customNetworks: [], customTokens: [], assets, netWorthHistory: [{ timestamp: now, total }], lastSync: now, sync: { status: 'idle', startedAt: null, finishedAt: null, error: null }, scheduler: { mode: 'random', minIntervalHours: RANDOM_REFRESH_MIN_HOURS, maxIntervalHours: RANDOM_REFRESH_MAX_HOURS, concurrencyPerChain: CONCURRENCY_PER_CHAIN, lastBatchAt: null, lastBatchSize: 0, nextBatchAt: nextAddressSchedule(addresses) } };
+  return { version: 13, managers, phones, walletCounts, walletNames: {}, walletMetadata: {}, walletActivityTemplates: [], walletActivityStatuses: {}, addresses, customNetworks: [], customTokens: stablecoinTokenDefinitions(), assets, netWorthHistory: [{ timestamp: now, total }], lastSync: now, sync: { status: 'idle', startedAt: null, finishedAt: null, error: null }, scheduler: { mode: 'random', minIntervalHours: RANDOM_REFRESH_MIN_HOURS, maxIntervalHours: RANDOM_REFRESH_MAX_HOURS, concurrencyPerChain: CONCURRENCY_PER_CHAIN, lastBatchAt: null, lastBatchSize: 0, nextBatchAt: nextAddressSchedule(addresses) } };
 }
 
 function emptyState() {
   return {
-    version: 12,
+    version: 13,
     managers: [],
     phones: [],
     walletCounts: {},
@@ -126,7 +182,7 @@ function emptyState() {
     walletActivityStatuses: {},
     addresses: [],
     customNetworks: [],
-    customTokens: [],
+    customTokens: stablecoinTokenDefinitions(),
     assets: [],
     netWorthHistory: [],
     lastSync: Date.now(),
@@ -262,6 +318,10 @@ function normalizePortfolio(portfolio) {
     }
     tokenDefinitions.set(key, token);
   }
+  for (const systemToken of stablecoinTokenDefinitions()) {
+    const key = `${systemToken.chain.toLowerCase()}|${systemToken.contract.toLowerCase()}`;
+    if (!tokenDefinitions.has(key)) tokenDefinitions.set(key, systemToken);
+  }
   normalized.customTokens = [...tokenDefinitions.values()];
   const customTokensById = new Map(normalized.customTokens.map(token => [token.id, token]));
   normalized.assets = (normalized.assets || []).map(asset => {
@@ -291,7 +351,7 @@ function normalizePortfolio(portfolio) {
   };
   delete normalized.scheduler.intervalMinutes;
   delete normalized.scheduler.nextFullCycleAt;
-  normalized.version = 12;
+  normalized.version = 13;
   return normalized;
 }
 
@@ -761,6 +821,7 @@ const dexQuoteCache = new Map();
 async function getDexQuote(network, contract) {
   const chainId = network?.dexScreenerId;
   const stablecoinFallback = getTrustedStablecoinFallback(network, contract);
+  if (stablecoinFallback) return stablecoinFallback;
   if (!chainId) return stablecoinFallback || { price: null, change24: null, liquidityUsd: null, source: null, error: '该链暂不支持自动报价' };
   const normalizedContract = String(contract).toLowerCase();
   const cacheKey = `${chainId}|${normalizedContract}`;
@@ -828,8 +889,11 @@ function validateCustomToken(body, ignoredId = null) {
   if (network.type === 'EVM' && !/^0x[a-fA-F0-9]{40}$/.test(contract)) return { error: 'EVM 币种合约地址格式不正确' };
   if (network.type === 'SVM' && contract.length < 32) return { error: 'Solana Mint 地址格式不正确' };
   if (!symbol || symbol.length > 16 || !Number.isInteger(decimals) || decimals < 0 || decimals > 36 || (priceMode === 'manual' && (!Number.isFinite(manualPrice) || manualPrice < 0))) return { error: '币种符号、精度或价格无效' };
-  const duplicate = state.customTokens.some(item => item.id !== ignoredId && item.chain === chain && item.contract.toLowerCase() === contract.toLowerCase());
-  if (duplicate) return { error: '这个币种已经添加到全账户目录', status: 409 };
+  const duplicate = state.customTokens.find(item => item.id !== ignoredId && item.chain === chain && item.contract.toLowerCase() === contract.toLowerCase());
+  if (duplicate) {
+    if (duplicate.system && ignoredId == null) return { token: duplicate, existing: true };
+    return { error: '这个币种已经添加到全账户目录', status: 409 };
+  }
   return { token: { scope: 'all', chain, contract, symbol, name: name || symbol, decimals, priceMode, manualPrice } };
 }
 
@@ -917,7 +981,283 @@ async function syncOneAddress(item, network, prices) {
   }
 }
 
-async function syncAddressGroup(item, networks, prices, runLimited) {
+const ERC20_TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a1c0c5e7f8';
+const SOLANA_TOKEN_PROGRAMS = ['TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnU3W1w4b'];
+
+function paddedAddressTopic(address) {
+  return `0x${String(address || '').toLowerCase().replace(/^0x/, '').padStart(64, '0')}`;
+}
+
+function safeBigInt(value) {
+  try { return BigInt(value || '0x0'); } catch { return 0n; }
+}
+
+function configuredToken(network, contract) {
+  const normalized = String(contract || '').toLowerCase();
+  return state.customTokens.some(token => token.chain === network.name && String(token.contract || '').toLowerCase() === normalized);
+}
+
+async function fetchIndexerJson(url, headers = {}) {
+  const response = await fetch(url, { headers: { accept: 'application/json', ...headers }, signal: AbortSignal.timeout(TOKEN_INDEXER_TIMEOUT_MS) });
+  let body = null;
+  try { body = await response.json(); } catch { /* include the HTTP status below */ }
+  if (!response.ok) throw new Error(`索引服务 HTTP ${response.status}`);
+  return body;
+}
+
+async function discoverEvmTokenCandidatesViaEtherscan(addressItem, network) {
+  if (!ETHERSCAN_API_KEY || !network.chainId) return null;
+  const url = new URL(ETHERSCAN_API_BASE);
+  url.searchParams.set('chainid', network.chainId);
+  url.searchParams.set('module', 'account');
+  url.searchParams.set('action', 'addresstokenbalance');
+  url.searchParams.set('address', addressItem.address);
+  url.searchParams.set('page', '1');
+  url.searchParams.set('offset', String(TOKEN_DISCOVERY_MAX_TOKENS));
+  url.searchParams.set('apikey', ETHERSCAN_API_KEY);
+  const body = await fetchIndexerJson(url);
+  const message = String(body?.message || body?.result || '');
+  if (String(body?.status) !== '1') {
+    if (/no token|not found/i.test(message)) return { candidates: [], mode: 'etherscan', error: null };
+    throw new Error(`Etherscan: ${message || '返回格式无效'}`);
+  }
+  if (!Array.isArray(body?.result)) throw new Error('Etherscan: 返回的代币持仓格式无效');
+  const candidates = (Array.isArray(body?.result) ? body.result : []).map(item => ({
+    contract: String(item.TokenAddress || item.tokenAddress || ''),
+    rawBalance: item.TokenQuantity ?? item.tokenQuantity ?? '0',
+    metadata: { name: String(item.TokenName || item.tokenName || ''), symbol: String(item.TokenSymbol || item.tokenSymbol || ''), decimals: Number(item.TokenDivisor ?? item.tokenDivisor) },
+    priceUsd: Number(item.TokenPriceUSD ?? item.tokenPriceUSD)
+  })).filter(item => /^0x[a-fA-F0-9]{40}$/.test(item.contract) && safeBigInt(item.rawBalance) > 0n).slice(0, TOKEN_DISCOVERY_MAX_TOKENS);
+  return { candidates, mode: 'etherscan', error: null };
+}
+
+async function discoverEvmTokenCandidatesViaBlockscout(addressItem, network) {
+  if (!network.blockscoutApi) return null;
+  const endpoint = `${network.blockscoutApi.replace(/\/$/, '')}/addresses/${encodeURIComponent(addressItem.address)}/token-balances`;
+  const body = await fetchIndexerJson(endpoint);
+  if (!Array.isArray(body) && !Array.isArray(body?.items)) throw new Error('Blockscout: 返回的代币持仓格式无效');
+  const rows = Array.isArray(body) ? body : body.items;
+  const candidates = rows.map(item => {
+    const token = item?.token || {};
+    return {
+      contract: String(token.address_hash || token.addressHash || ''),
+      rawBalance: item?.value ?? '0',
+      metadata: { name: String(token.name || ''), symbol: String(token.symbol || ''), decimals: Number(token.decimals) },
+      priceUsd: Number(token.exchange_rate),
+      tokenType: String(token.type || 'ERC-20').toUpperCase()
+    };
+  }).filter(item => /^0x[a-fA-F0-9]{40}$/.test(item.contract)
+    && safeBigInt(item.rawBalance) > 0n
+    && item.tokenType === 'ERC-20'
+    && (item.metadata.symbol || item.metadata.name || Number.isInteger(item.metadata.decimals)))
+    .slice(0, TOKEN_DISCOVERY_MAX_TOKENS);
+  return { candidates, mode: 'blockscout', error: null };
+}
+
+async function discoverEvmTokenContractsViaLogs(addressItem, network, runLimited, options = {}) {
+  const latestHex = await runLimited(network.name, () => rpcCall(network.rpc, 'eth_blockNumber', []));
+  const latest = Number(safeBigInt(latestHex));
+  if (!Number.isSafeInteger(latest) || latest < 0) throw new Error('无法读取区块高度');
+  const fullHistory = Boolean(options.deepDiscovery) || TOKEN_DISCOVERY_FULL_HISTORY;
+  const from = fullHistory ? 0 : Math.max(0, latest - TOKEN_DISCOVERY_HISTORY_BLOCKS);
+  const addressTopic = paddedAddressTopic(addressItem.address);
+  const contracts = new Set();
+  let totalLogs = 0;
+  let start = from;
+  let chunk = TOKEN_DISCOVERY_LOG_CHUNK;
+  let scannedThrough = from - 1;
+  let truncated = false;
+  while (start <= latest) {
+    const end = Math.min(latest, start + chunk);
+    const filters = [
+      { fromBlock: `0x${start.toString(16)}`, toBlock: `0x${end.toString(16)}`, topics: [ERC20_TRANSFER_TOPIC, addressTopic] },
+      { fromBlock: `0x${start.toString(16)}`, toBlock: `0x${end.toString(16)}`, topics: [ERC20_TRANSFER_TOPIC, null, addressTopic] }
+    ];
+    try {
+      const batches = await Promise.all(filters.map(filter => runLimited(network.name, () => rpcCall(network.rpc, 'eth_getLogs', [filter]))));
+      for (const logs of batches) {
+        for (const log of Array.isArray(logs) ? logs : []) {
+          const contract = String(log?.address || '');
+          if (/^0x[a-fA-F0-9]{40}$/.test(contract)) contracts.add(contract);
+        }
+        totalLogs += Array.isArray(logs) ? logs.length : 0;
+      }
+      scannedThrough = end;
+      start = end + 1;
+      if (contracts.size >= TOKEN_DISCOVERY_MAX_TOKENS || totalLogs >= TOKEN_DISCOVERY_MAX_LOGS) {
+        truncated = start <= latest;
+        break;
+      }
+    } catch (error) {
+      if (chunk <= TOKEN_DISCOVERY_MIN_LOG_CHUNK) throw error;
+      chunk = Math.max(TOKEN_DISCOVERY_MIN_LOG_CHUNK, Math.floor(chunk / 2));
+    }
+  }
+  return { candidates: [...contracts].slice(0, TOKEN_DISCOVERY_MAX_TOKENS).map(contract => ({ contract, rawBalance: null })), truncated, scannedFrom: from, scannedThrough, totalLogs };
+}
+
+async function discoverEvmTokenCandidates(addressItem, network, runLimited, options = {}) {
+  const errors = [];
+  try {
+    const result = await runLimited(network.name, () => rpcCall(network.rpc, 'alchemy_getTokenBalances', [addressItem.address, 'erc20']));
+    if (!Array.isArray(result?.tokenBalances)) throw new Error('RPC 未提供 Token 索引方法');
+    return { candidates: result.tokenBalances.map(item => ({ contract: String(item.contractAddress || ''), rawBalance: item.tokenBalance }))
+      .filter(item => /^0x[a-fA-F0-9]{40}$/.test(item.contract) && safeBigInt(item.rawBalance) > 0n).slice(0, TOKEN_DISCOVERY_MAX_TOKENS), mode: 'indexer', error: null };
+  } catch (indexerError) {
+    errors.push(indexerError.message);
+  }
+  if (ETHERSCAN_API_KEY && network.chainId) {
+    try {
+      const etherscan = await discoverEvmTokenCandidatesViaEtherscan(addressItem, network);
+      if (etherscan) return etherscan;
+    } catch (error) { errors.push(error.message); }
+  }
+  if (network.blockscoutApi) {
+    try {
+      const blockscout = await discoverEvmTokenCandidatesViaBlockscout(addressItem, network);
+      if (blockscout) return blockscout;
+    } catch (error) { errors.push(error.message); }
+  }
+  try {
+    const logs = await discoverEvmTokenContractsViaLogs(addressItem, network, runLimited, options);
+    return { ...logs, mode: logs.truncated ? 'transfer-log-truncated' : 'transfer-log', error: null };
+  } catch (error) {
+    errors.push(error.message);
+    return { candidates: [], mode: 'unavailable', error: errors.join('; ') };
+  }
+}
+
+async function readEvmTokenMetadata(network, contract, runLimited) {
+  const known = stablecoinDefinition(network.name, contract);
+  if (known) return { name: known.name, symbol: known.symbol, decimals: known.decimals };
+  const selectors = { name: '0x06fdde03', symbol: '0x95d89b41', decimals: '0x313ce567' };
+  const entries = await Promise.all(Object.entries(selectors).map(async ([field, data]) => {
+    try { return [field, await runLimited(network.name, () => rpcCall(network.rpc, 'eth_call', [{ to: contract, data }, 'latest']))]; }
+    catch { return [field, null]; }
+  }));
+  const values = Object.fromEntries(entries);
+  const decimalsRaw = values.decimals ? Number(safeBigInt(values.decimals)) : null;
+  return {
+    name: decodeAbiString(values.name) || '未知 ERC-20 代币',
+    symbol: decodeAbiString(values.symbol) || `TOKEN-${contract.slice(2, 8).toUpperCase()}`,
+    decimals: Number.isInteger(decimalsRaw) && decimalsRaw >= 0 && decimalsRaw <= 36 ? decimalsRaw : 18
+  };
+}
+
+async function discoverEvmTokenAssets(addressItem, network, runLimited, options = {}) {
+  const discovery = await discoverEvmTokenCandidates(addressItem, network, runLimited, options);
+  const assets = [];
+  const seenContracts = new Set();
+  for (const candidate of discovery.candidates) {
+    const contract = candidate.contract;
+    const contractKey = String(contract).toLowerCase();
+    if (seenContracts.has(contractKey)) continue;
+    seenContracts.add(contractKey);
+    if (configuredToken(network, contract)) continue;
+    const candidateMetadata = candidate.metadata && typeof candidate.metadata === 'object' ? candidate.metadata : null;
+    const metadata = candidateMetadata && candidateMetadata.symbol && Number.isInteger(candidateMetadata.decimals) && candidateMetadata.decimals >= 0 && candidateMetadata.decimals <= 36
+      ? { name: candidateMetadata.name || candidateMetadata.symbol, symbol: candidateMetadata.symbol, decimals: candidateMetadata.decimals }
+      : await readEvmTokenMetadata(network, contract, runLimited);
+    let rawBalance = safeBigInt(candidate.rawBalance);
+    if (!rawBalance) {
+      try {
+        const owner = addressItem.address.toLowerCase().replace(/^0x/, '').padStart(64, '0');
+        const result = await runLimited(network.name, () => rpcCall(network.rpc, 'eth_call', [{ to: contract, data: `0x70a08231${owner}` }, 'latest']));
+        rawBalance = safeBigInt(result);
+      } catch { continue; }
+    }
+    if (rawBalance <= 0n) continue;
+    const amountText = unitsFromBigInt(rawBalance, metadata.decimals);
+    const amount = Number(amountText);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    const indexedPrice = Number(candidate.priceUsd);
+    const quote = Number.isFinite(indexedPrice) && indexedPrice > 0
+      ? { price: indexedPrice, change24: null, liquidityUsd: null, source: discovery.mode, url: null, quotedAt: new Date().toISOString(), error: null }
+      : await getDexQuote(network, contract);
+    const stablecoin = stablecoinDefinition(network.name, contract);
+    assets.push({
+      symbol: metadata.symbol,
+      name: metadata.name,
+      chain: network.name,
+      phoneId: addressItem.phoneId,
+      wallet: addressItem.wallet,
+      amount: `${amount.toLocaleString('en-US', { maximumFractionDigits: 8 })} ${metadata.symbol}`,
+      change: nullableNumber(quote.change24),
+      value: quote.price == null ? null : amount * quote.price,
+      price: quote.price,
+      priceSource: quote.source,
+      quoteUrl: quote.url,
+      color: stablecoin ? '#b8ff62' : '#53d5e7',
+      source: 'auto-discovery',
+      addressId: addressItem.id,
+      tokenAddress: contract,
+      tokenDecimals: metadata.decimals,
+      stablecoin: Boolean(stablecoin)
+    });
+  }
+  return { assets, mode: discovery.mode, error: discovery.error, truncated: Boolean(discovery.truncated), scannedFrom: discovery.scannedFrom, scannedThrough: discovery.scannedThrough };
+}
+
+async function discoverSolanaTokenAssets(addressItem, network, runLimited) {
+  const accounts = [];
+  const errors = [];
+  for (const programId of SOLANA_TOKEN_PROGRAMS) {
+    try {
+      const result = await runLimited(network.name, () => rpcCall(network.rpc, 'getTokenAccountsByOwner', [addressItem.address, { programId }, { encoding: 'jsonParsed', commitment: 'confirmed' }]));
+      accounts.push(...(Array.isArray(result?.value) ? result.value : []));
+    } catch (error) { errors.push(error.message); }
+  }
+  const byMint = new Map();
+  for (const account of accounts) {
+    const info = account?.account?.data?.parsed?.info;
+    const mint = String(info?.mint || '');
+    const tokenAmount = info?.tokenAmount;
+    if (!mint || !tokenAmount) continue;
+    const raw = safeBigInt(tokenAmount.amount);
+    if (raw <= 0n) continue;
+    const previous = byMint.get(mint) || { raw: 0n, decimals: Number(tokenAmount.decimals) };
+    byMint.set(mint, { raw: previous.raw + raw, decimals: Number.isInteger(previous.decimals) ? previous.decimals : Number(tokenAmount.decimals) });
+  }
+  const assets = [];
+  for (const [mint, balance] of byMint) {
+    if (configuredToken(network, mint)) continue;
+    const known = stablecoinDefinition(network.name, mint);
+    const decimals = known?.decimals ?? (Number.isInteger(balance.decimals) ? balance.decimals : 6);
+    const amountText = unitsFromBigInt(balance.raw, decimals);
+    const amount = Number(amountText);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    const quote = await getDexQuote(network, mint);
+    const symbol = known?.symbol || `SPL-${mint.slice(0, 4).toUpperCase()}`;
+    assets.push({
+      symbol,
+      name: known?.name || 'SPL Token',
+      chain: network.name,
+      phoneId: addressItem.phoneId,
+      wallet: addressItem.wallet,
+      amount: `${amount.toLocaleString('en-US', { maximumFractionDigits: 8 })} ${symbol}`,
+      change: nullableNumber(quote.change24),
+      value: quote.price == null ? null : amount * quote.price,
+      price: quote.price,
+      priceSource: quote.source,
+      quoteUrl: quote.url,
+      color: known ? '#b8ff62' : '#53d5e7',
+      source: 'auto-discovery',
+      addressId: addressItem.id,
+      tokenAddress: mint,
+      tokenDecimals: decimals,
+      stablecoin: Boolean(known)
+    });
+  }
+  return { assets, mode: 'rpc-token-accounts', error: errors.length === SOLANA_TOKEN_PROGRAMS.length ? errors.join('; ') : null };
+}
+
+async function discoverTokenAssets(addressItem, network, runLimited, options = {}) {
+  if (network.type === 'EVM') return discoverEvmTokenAssets(addressItem, network, runLimited, options);
+  if (network.type === 'SVM') return discoverSolanaTokenAssets(addressItem, network, runLimited);
+  return { assets: [], mode: 'unsupported', error: '该网络类型暂不支持自动发现代币' };
+}
+
+async function syncAddressGroup(item, networks, prices, runLimited, options = {}) {
   const targets = item.chain === 'EVM'
     ? networks.filter(network => network.type === 'EVM' && network.rpc)
     : networks.filter(network => network.name === item.chain && network.rpc);
@@ -925,20 +1265,30 @@ async function syncAddressGroup(item, networks, prices, runLimited) {
   if (!targets.length) return { address: { ...item, status: 'error', error: '该网络未配置 RPC', syncedAt }, assets: [] };
 
   const pieces = await Promise.all(targets.map(network => runLimited(network.name, () => syncOneAddress(item, network, prices))));
-  const assets = pieces.flatMap(piece => piece.asset ? [piece.asset] : []);
+  const nativeAssets = pieces.flatMap(piece => piece.asset ? [piece.asset] : []);
+  const tokenPieces = await Promise.all(targets.map(network => discoverTokenAssets(item, network, runLimited, options).catch(error => ({ assets: [], mode: 'error', error: error.message }))));
+  const assets = [...nativeAssets, ...tokenPieces.flatMap(piece => piece.assets || [])];
   const errors = Object.fromEntries(pieces.filter(piece => piece.error).map(piece => [piece.network, piece.error]));
-  const status = assets.length === targets.length ? 'synced' : assets.length ? 'partial' : 'error';
+  const status = nativeAssets.length === targets.length ? 'synced' : nativeAssets.length ? 'partial' : 'error';
   return {
     address: {
       ...item,
       status,
       syncedAt,
       nativeBalance: item.chain === 'EVM' ? null : pieces[0]?.address.nativeBalance ?? null,
-      nativeBalances: item.chain === 'EVM' ? Object.fromEntries(assets.map(asset => [asset.chain, asset.amount])) : undefined,
-      syncedChains: assets.length,
+      nativeBalances: item.chain === 'EVM' ? Object.fromEntries(nativeAssets.map(asset => [asset.chain, asset.amount])) : undefined,
+      syncedChains: nativeAssets.length,
       totalChains: targets.length,
       error: status === 'synced' ? null : status === 'partial' ? `${Object.keys(errors).length} 条链同步失败` : Object.values(errors)[0] || '同步失败',
-      errors: Object.keys(errors).length ? errors : undefined
+      errors: Object.keys(errors).length ? errors : undefined,
+      tokenDiscovery: {
+        discovered: tokenPieces.reduce((sum, piece) => sum + (piece.assets || []).length, 0),
+        modes: [...new Set(tokenPieces.map(piece => piece.mode).filter(Boolean))],
+        errors: Object.fromEntries(tokenPieces.map((piece, index) => [targets[index].name, piece.error]).filter(([, error]) => error)),
+        truncated: tokenPieces.some(piece => piece.truncated),
+        incompleteChains: tokenPieces.map((piece, index) => (piece.error || piece.truncated) ? targets[index].name : null).filter(Boolean),
+        scannedThrough: Object.fromEntries(tokenPieces.map((piece, index) => [targets[index]?.name || String(index), piece.scannedThrough]).filter(([, block]) => Number.isFinite(block)))
+      }
     },
     assets
   };
@@ -948,7 +1298,14 @@ async function syncCustomTokenBalance(token, addressItem, network, runLimited) {
   let amount;
   if (network.type === 'SVM') {
     const result = await runLimited(network.name, () => rpcCall(network.rpc, 'getTokenAccountsByOwner', [addressItem.address, { mint: token.contract }, { encoding: 'jsonParsed', commitment: 'confirmed' }]));
-    amount = (result.value || []).reduce((sum, account) => sum + Number(account.account?.data?.parsed?.info?.tokenAmount?.uiAmountString || 0), 0);
+    amount = (result.value || []).reduce((sum, account) => {
+      const tokenAmount = account.account?.data?.parsed?.info?.tokenAmount || {};
+      const uiAmount = Number(tokenAmount.uiAmountString);
+      if (Number.isFinite(uiAmount)) return sum + uiAmount;
+      const rawAmount = Number(tokenAmount.amount);
+      const decimals = Number(tokenAmount.decimals ?? token.decimals);
+      return Number.isFinite(rawAmount) && Number.isFinite(decimals) ? sum + rawAmount / 10 ** decimals : sum;
+    }, 0);
   } else {
     const owner = addressItem.address.toLowerCase().replace(/^0x/, '').padStart(64, '0');
     const result = await runLimited(network.name, () => rpcCall(network.rpc, 'eth_call', [{ to: token.contract, data: `0x70a08231${owner}` }, 'latest']));
@@ -1043,8 +1400,9 @@ async function runSync(options = {}) {
   let selectedAddressIds = [];
   const syncPromise = (async () => {
     const selectedAddresses = addressesForScope(options);
+    const syncOptions = { ...options, deepDiscovery: options.deepDiscovery === true || options.deepDiscovery === 'true' };
     selectedAddressIds = selectedAddresses.map(item => item.id);
-    state.sync = { status: 'running', startedAt: new Date().toISOString(), finishedAt: null, error: null, scope: options.scope || 'all', scopeLabel: scopeLabel(options), addressCount: selectedAddresses.length };
+    state.sync = { status: 'running', startedAt: new Date().toISOString(), finishedAt: null, error: null, scope: options.scope || 'all', scopeLabel: scopeLabel(options), addressCount: selectedAddresses.length, deepDiscovery: syncOptions.deepDiscovery };
     await saveState();
     const networks = networksForSync();
     const prices = await getPrices(networks);
@@ -1053,7 +1411,7 @@ async function runSync(options = {}) {
       const network = networks.find(item => item.name === token.chain);
       return network && selectedAddresses.some(address => addressSupportsNetwork(address, network));
     });
-    const results = await Promise.all(selectedAddresses.map(item => syncAddressGroup(item, networks, prices, runLimited)));
+    const results = await Promise.all(selectedAddresses.map(item => syncAddressGroup(item, networks, prices, runLimited, syncOptions)));
     const tokenResults = await Promise.all(selectedTokens.map(token => syncCustomToken(token, selectedAddresses, networks, runLimited)));
     const addressResults = new Map(results.map(result => [result.address.id, result.address]));
     const customTokenResults = new Map(tokenResults.map(result => [result.token.id, result.token]));
@@ -1065,7 +1423,13 @@ async function runSync(options = {}) {
     state.customTokens = state.customTokens.map(item => customTokenResults.get(item.id) || item);
     const refreshedAddressIds = new Set(results.map(result => result.address.id));
     const refreshedKeys = new Set(results.flatMap(result => result.assets.map(asset => `${asset.phoneId}|${asset.wallet}|${asset.chain}`)));
-    state.assets = state.assets.filter(asset => !refreshedAddressIds.has(asset.addressId) && !(asset.addressId == null && refreshedKeys.has(`${asset.phoneId}|${asset.wallet}|${asset.chain}`)));
+    const incompleteDiscoveryKeys = new Set(results.flatMap(result => (result.address.tokenDiscovery?.incompleteChains || []).map(chain => `${result.address.id}|${chain}`)));
+    state.assets = state.assets.filter(asset => {
+      if (refreshedAddressIds.has(asset.addressId)) return asset.source === 'auto-discovery' && incompleteDiscoveryKeys.has(`${asset.addressId}|${asset.chain}`);
+      return asset.addressId == null && refreshedKeys.has(`${asset.phoneId}|${asset.wallet}|${asset.chain}`) ? false : true;
+    }).map(asset => incompleteDiscoveryKeys.has(`${asset.addressId}|${asset.chain}`) && asset.source === 'auto-discovery'
+      ? { ...asset, stale: true, staleAt: new Date().toISOString() }
+      : asset);
     for (const result of results) state.assets.push(...result.assets);
     for (const result of tokenResults) state.assets.push(...result.assets);
     state.lastSync = completedAt;
@@ -1089,7 +1453,7 @@ async function runSync(options = {}) {
 
 async function handleApi(request, response, url) {
   if (request.method === 'GET' && url.pathname === '/api/health') {
-    return json(response, 200, { ok: true, service: 'chainfolio-backend', uptime: process.uptime(), sync: state.sync, scheduler: state.scheduler, counts: { managers: state.managers.length, phones: state.phones.length, addresses: state.addresses.length } });
+    return json(response, 200, { ok: true, service: 'chainfolio-backend', uptime: process.uptime(), sync: state.sync, scheduler: state.scheduler, indexers: { etherscan: Boolean(ETHERSCAN_API_KEY), blockscoutNetworks: networkCatalog.filter(network => network.blockscoutApi).map(network => network.name) }, counts: { managers: state.managers.length, phones: state.phones.length, addresses: state.addresses.length } });
   }
   if (request.method === 'GET' && url.pathname === '/api/state') return json(response, 200, { ...state, currentUser: publicUser(requestContext.getStore().user) });
   if (request.method === 'POST' && url.pathname === '/api/sync') {
@@ -1334,10 +1698,11 @@ async function handleApi(request, response, url) {
   } else if (request.method === 'POST' && url.pathname === '/api/tokens') {
     const validated = validateCustomToken(body);
     if (validated.error) return json(response, validated.status || 400, { error: validated.error });
-    state.customTokens.push({ id: nextId(state.customTokens, 'CT'), ...validated.token, status: 'pending' });
+    if (!validated.existing) state.customTokens.push({ id: nextId(state.customTokens, 'CT'), ...validated.token, status: 'pending' });
   } else if (request.method === 'PATCH' && /^\/api\/tokens\/[^/]+$/.test(url.pathname)) {
     const tokenId = decodeURIComponent(url.pathname.split('/')[3]);
     const item = state.customTokens.find(token => token.id === tokenId);
+    if (item?.system) return json(response, 409, { error: '系统稳定币由系统自动维护，不能编辑' });
     if (!item) return json(response, 404, { error: '自定义币种不存在' });
     const validated = validateCustomToken(body, tokenId);
     if (validated.error) return json(response, validated.status || 400, { error: validated.error });
@@ -1345,7 +1710,9 @@ async function handleApi(request, response, url) {
     Object.assign(item, validated.token, { status: 'pending', error: null, quoteError: null, syncedAt: null });
   } else if (request.method === 'DELETE' && /^\/api\/tokens\/[^/]+$/.test(url.pathname)) {
     const tokenId = decodeURIComponent(url.pathname.split('/')[3]);
-    if (!state.customTokens.some(token => token.id === tokenId)) return json(response, 404, { error: '自定义币种不存在' });
+    const token = state.customTokens.find(item => item.id === tokenId);
+    if (!token) return json(response, 404, { error: '自定义币种不存在' });
+    if (token.system) return json(response, 409, { error: '系统稳定币已自动启用，不能删除；如需补充其他代币，请使用自定义 Token' });
     state.customTokens = state.customTokens.filter(token => token.id !== tokenId);
     state.assets = state.assets.filter(asset => asset.customTokenId !== tokenId);
   } else if (request.method === 'POST' && url.pathname === '/api/networks') {

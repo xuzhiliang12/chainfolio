@@ -1,6 +1,6 @@
 {
   "name": "chainfolio",
-  "version": "1.0.1",
+  "version": "1.1.1",
   "description": "Self-hosted, watch-only multi-chain asset and wallet activity manager",
   "private": false,
   "license": "AGPL-3.0-or-later",
@@ -17,7 +17,7 @@
     "dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext dev",
     "build": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build",
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
-    "test": "npm run build && node --test tests/rendered-html.test.mjs tests/auth-integration.test.mjs tests/global-token-pricing.test.mjs",
+    "test": "npm run build && node --test tests/rendered-html.test.mjs tests/auth-integration.test.mjs tests/global-token-pricing.test.mjs tests/auto-discovery.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"
   },

@@ -539,13 +539,15 @@ function renderAddresses() {
       ? (isEvm ? `已同步 ${item.syncedChains || item.totalChains || 0} 条链` : '已同步')
       : item.status === 'partial' ? `已同步 ${item.syncedChains || 0}/${item.totalChains || 0} 条链`
         : item.status === 'error' ? '同步失败' : '待更新';
+    const discoveryModes = Array.isArray(item.tokenDiscovery?.modes) ? item.tokenDiscovery.modes : [];
+    const discoveryStatus = Object.keys(item.tokenDiscovery?.errors || {}).length ? ' · 代币自动发现需检查 RPC' : item.tokenDiscovery?.truncated ? ' · 代币历史扫描未完成' : discoveryModes.includes('etherscan') ? ' · Etherscan 索引' : discoveryModes.includes('blockscout') ? ' · Blockscout 索引' : discoveryModes.includes('transfer-log') ? ' · Transfer 扫描' : '';
     const nextTime = Number.isFinite(Date.parse(item.nextSyncAt))
       ? new Date(item.nextSyncAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
       : '等待安排';
     return `
     <div class="address-row device-address-row">
       <div class="address-account"><span>${item.phoneId.slice(-2)}</span><div><strong>${phoneName(item.phoneId)}</strong><small>${escapeHtml(managerForPhone(item.phoneId)?.name || '未分配')} · ${escapeHtml(walletLabel(item.wallet, item.phoneId))}</small></div></div>
-      <div class="address-network"><span class="chain-chip">${isEvm ? 'EV' : escapeHtml(item.chain.slice(0, 2))}</span><div><strong>${escapeHtml(networkName)}</strong><small>${statusText} · 下次约 ${nextTime}</small></div></div>
+      <div class="address-network"><span class="chain-chip">${isEvm ? 'EV' : escapeHtml(item.chain.slice(0, 2))}</span><div><strong>${escapeHtml(networkName)}</strong><small>${statusText}${discoveryStatus} · 下次约 ${nextTime}</small></div></div>
       <span class="address-hash">${escapeHtml(item.address)}</span><span class="row-actions"><button class="copy-button" data-copy="${escapeHtml(item.address)}">复制</button><button class="copy-button" data-edit-address="${item.id}">编辑</button><button class="copy-button danger-action" data-delete-address="${item.id}">删除</button></span>
     </div>`;
   }).join('') : '<div class="empty-state">这台手机还没有导入地址</div>';
@@ -566,15 +568,17 @@ function renderAssets() {
   const filtered = filteredAssets();
   document.querySelector('#exportAssetsButton').textContent = `⇩ 导出当前 ${filtered.length} 条`;
   document.querySelector('#assetTableBody').innerHTML = visibleItems(filtered, 'assets').map(asset => {
-    const tokenActions = asset.customTokenId ? `<span class="row-actions"><button class="copy-button" data-edit-token="${asset.customTokenId}">编辑</button><button class="copy-button danger-action" data-delete-token="${asset.customTokenId}">删除</button></span>` : '<span class="muted-dash">—</span>';
+    const tokenRecord = asset.customTokenId ? customTokens.find(token => token.id === asset.customTokenId) : null;
+    const tokenActions = !asset.customTokenId ? '<span class="muted-dash">—</span>' : tokenRecord?.system ? '<span class="muted-dash">系统管理</span>' : `<span class="row-actions"><button class="copy-button" data-edit-token="${asset.customTokenId}">编辑</button><button class="copy-button danger-action" data-delete-token="${asset.customTokenId}">删除</button></span>`;
     const change = Number(asset.change);
     const hasChange = Number.isFinite(change);
     const changeText = hasChange ? `${change >= 0 ? '+' : ''}${change.toFixed(2)}%` : '—';
-    const priceLabel = asset.customTokenId ? asset.priceSource === 'manual' ? ' · 手动价格' : asset.priceSource === 'stablecoin-fallback' ? ' · 稳定币估值' : asset.priceSource === 'dexscreener' ? ' · 自动报价' : '' : '';
+    const priceLabel = asset.priceSource === 'manual' ? ' · 手动价格' : asset.priceSource === 'stablecoin-fallback' ? ' · 稳定币估值' : asset.priceSource === 'dexscreener' ? ' · 自动报价' : ['etherscan', 'blockscout'].includes(asset.priceSource) ? ` · ${asset.priceSource === 'etherscan' ? 'Etherscan 报价' : 'Blockscout 报价'}` : '';
+    const discoveryLabel = asset.source === 'auto-discovery' ? ` · 自动发现${asset.stale ? ' · 上次已知' : ''}` : '';
     const valueText = Number.isFinite(Number(asset.value)) ? `<strong>${privateValue(money(asset.value))}</strong>` : '<span class="no-quote">暂无报价</span>';
     return `
     <tr><td><div class="asset-name"><span class="token-icon" style="background:${escapeHtml(asset.color || '#53d5e7')}">${escapeHtml(asset.symbol.slice(0, 2))}</span><div><strong>${escapeHtml(asset.symbol)}</strong><small>${escapeHtml(asset.name)}</small></div></div></td>
-    <td><span class="network-badge"><i></i>${escapeHtml(asset.chain)}</span></td><td><span class="asset-source">${escapeHtml(managerForPhone(asset.phoneId)?.name || '未分配')} / ${escapeHtml(phoneName(asset.phoneId))} · ${escapeHtml(walletLabel(asset.wallet, asset.phoneId))}${asset.customTokenId ? ' · 自定义币种' : ''}${priceLabel}</span></td><td>${privateValue(escapeHtml(asset.amount))}</td><td class="${hasChange ? change >= 0 ? 'change-up' : 'change-down' : ''}">${changeText}</td><td>${valueText}</td><td>${tokenActions}</td></tr>`;
+    <td><span class="network-badge"><i></i>${escapeHtml(asset.chain)}</span></td><td><span class="asset-source">${escapeHtml(managerForPhone(asset.phoneId)?.name || '未分配')} / ${escapeHtml(phoneName(asset.phoneId))} · ${escapeHtml(walletLabel(asset.wallet, asset.phoneId))}${asset.customTokenId ? ' · 自定义币种' : ''}${discoveryLabel}${priceLabel}</span></td><td>${privateValue(escapeHtml(asset.amount))}</td><td class="${hasChange ? change >= 0 ? 'change-up' : 'change-down' : ''}">${changeText}</td><td>${valueText}</td><td>${tokenActions}</td></tr>`;
   }).join('');
   document.querySelector('#emptyState').hidden = filtered.length > 0;
   renderListControl('assetListControl', filtered.length, 'assets');
@@ -705,8 +709,8 @@ function exportAssets() {
     return matching?.address || '';
   };
   const lines = [headers, ...rows.map(asset => {
-    const priceState = Number.isFinite(Number(asset.value)) ? (asset.priceSource === 'manual' ? '手动价格' : asset.priceSource === 'stablecoin-fallback' ? '稳定币估值' : asset.priceSource === 'dexscreener' ? '自动报价' : '已报价') : '暂无报价';
-    return [managerForPhone(asset.phoneId)?.name || '未分配', phoneName(asset.phoneId), asset.phoneId, walletLabel(asset.wallet, asset.phoneId), asset.chain, asset.symbol, asset.name, asset.amount, Number.isFinite(Number(asset.change)) ? Number(asset.change).toFixed(2) : '', Number.isFinite(Number(asset.value)) ? Number(asset.value).toFixed(2) : '', priceState, asset.customTokenId ? '自定义币种' : (asset.source || '链上同步'), addressForAsset(asset)];
+    const priceState = Number.isFinite(Number(asset.value)) ? (asset.priceSource === 'manual' ? '手动价格' : asset.priceSource === 'stablecoin-fallback' ? '稳定币估值' : asset.priceSource === 'dexscreener' ? '自动报价' : ['etherscan', 'blockscout'].includes(asset.priceSource) ? '索引服务报价' : '已报价') : '暂无报价';
+    return [managerForPhone(asset.phoneId)?.name || '未分配', phoneName(asset.phoneId), asset.phoneId, walletLabel(asset.wallet, asset.phoneId), asset.chain, asset.symbol, asset.name, asset.amount, Number.isFinite(Number(asset.change)) ? Number(asset.change).toFixed(2) : '', Number.isFinite(Number(asset.value)) ? Number(asset.value).toFixed(2) : '', priceState, `${asset.customTokenId ? '自定义币种' : (asset.source || '链上同步')}${asset.stale ? '（上次已知）' : ''}`, addressForAsset(asset)];
   })].map(line => line.map(csvCell).join(','));
   const blob = new Blob([`\ufeff${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' }); const url = URL.createObjectURL(blob); const link = document.createElement('a');
   link.href = url; link.download = `Chainfolio-资产明细-${new Date().toISOString().slice(0, 10)}.csv`; link.click(); URL.revokeObjectURL(url); showToast(`已导出 ${rows.length} 条资产明细`);
@@ -886,7 +890,7 @@ function renderSyncScopeOptions() {
   document.querySelector('#syncWalletField').hidden = scope !== 'wallet';
 }
 
-function openSyncModal() { renderSyncScopeOptions(); openModal('syncModal'); }
+function openSyncModal() { renderSyncScopeOptions(); document.querySelector('#syncDeepDiscovery').checked = false; openModal('syncModal'); }
 
 async function performSync(manual = false, options = { scope: 'all' }) {
   if (syncInFlight) return;
@@ -1144,15 +1148,21 @@ document.querySelector('#syncForm').addEventListener('submit', async event => {
   if (scope === 'manager') options.managerId = document.querySelector('#syncManager').value;
   if (scope === 'phone' || scope === 'wallet') options.phoneId = document.querySelector('#syncPhone').value;
   if (scope === 'wallet') options.wallet = Number(document.querySelector('#syncWallet').value);
+  options.deepDiscovery = document.querySelector('#syncDeepDiscovery').checked;
   closeModal('syncModal'); await performSync(true, options);
 });
 
 document.querySelector('#assetTableBody').addEventListener('click', async event => {
   const edit = event.target.closest('[data-edit-token]');
-  if (edit) { openTokenModal(customTokens.find(token => token.id === edit.dataset.editToken)); return; }
+  if (edit) {
+    const token = customTokens.find(item => item.id === edit.dataset.editToken);
+    if (token?.system) { showToast('系统稳定币由系统自动维护，不能编辑'); return; }
+    openTokenModal(token); return;
+  }
   const remove = event.target.closest('[data-delete-token]');
   if (!remove) return;
   const token = customTokens.find(item => item.id === remove.dataset.deleteToken);
+  if (token?.system) { showToast('系统稳定币由系统自动维护，不能删除'); return; }
   if (!token || !confirm(`确定删除自定义币种 ${token.symbol} 吗？对应的余额记录也会删除。`)) return;
   try { applyBackendState(await api(`/api/tokens/${token.id}`, { method: 'DELETE' })); renderAll(); showToast(`${token.symbol} 已删除`); }
   catch (error) { showToast(error.message); }

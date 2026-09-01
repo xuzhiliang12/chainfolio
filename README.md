@@ -30,7 +30,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 浏览器会打开 `http://127.0.0.1:4173`。根据页面提示创建你自己的本地主账户。
 
-完整说明见 [Windows 安装](docs/INSTALL_WINDOWS.md)、[Docker 安装](docs/INSTALL_DOCKER.md) 和 [AI 部署指南](docs/DEPLOY_WITH_AI.md)。
+完整说明见 [Windows 安装](docs/INSTALL_WINDOWS.md)、[Docker 安装](docs/INSTALL_DOCKER.md)、[自动发现资产](docs/AUTO_DISCOVERY.md) 和 [AI 部署指南](docs/DEPLOY_WITH_AI.md)。如需补全更早出现的 ERC-20 资产，可在服务器设置 `ETHERSCAN_API_KEY`，系统会优先使用索引接口。
 
 ## 更新与备份
 
@@ -51,6 +51,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 - 净值历史以及昨日、7 天、30 天、90 天或指定日期对比。
 - EVM 地址一次导入，同步 Ethereum、Arbitrum、Base、Optimism、BNB Chain、Robinhood Chain、X Layer 及自定义 EVM 链。
 - Solana 地址与 SPL Token。
+- 导入地址后自动发现 EVM ERC-20、Solana SPL / Token-2022 余额；USDT、USDC、USDG 稳定币目录按链自动启用。
 - 输入 Token 合约或 Mint 后识别符号、名称和精度，并尝试自动报价。
 - 全账户统一识别自定义 Token，无需逐钱包重复添加。
 - 随机地址、随机批次、10–24 小时随机更新，也支持手动刷新。
