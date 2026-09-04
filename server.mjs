@@ -12,6 +12,7 @@ const stateFile = join(dataRoot, 'state.json');
 const tempStateFile = join(dataRoot, 'state.tmp.json');
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || '127.0.0.1';
+const appVersion = String(process.env.APP_VERSION || 'dev');
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml' };
 const HOUR = 60 * 60 * 1000;
 const MINUTE = 60 * 1000;
@@ -1453,7 +1454,7 @@ async function runSync(options = {}) {
 
 async function handleApi(request, response, url) {
   if (request.method === 'GET' && url.pathname === '/api/health') {
-    return json(response, 200, { ok: true, service: 'chainfolio-backend', uptime: process.uptime(), sync: state.sync, scheduler: state.scheduler, indexers: { etherscan: Boolean(ETHERSCAN_API_KEY), blockscoutNetworks: networkCatalog.filter(network => network.blockscoutApi).map(network => network.name) }, counts: { managers: state.managers.length, phones: state.phones.length, addresses: state.addresses.length } });
+    return json(response, 200, { ok: true, service: 'chainfolio-backend', version: appVersion, uptime: process.uptime(), sync: state.sync, scheduler: state.scheduler, indexers: { etherscan: Boolean(ETHERSCAN_API_KEY), blockscoutNetworks: networkCatalog.filter(network => network.blockscoutApi).map(network => network.name) }, counts: { managers: state.managers.length, phones: state.phones.length, addresses: state.addresses.length } });
   }
   if (request.method === 'GET' && url.pathname === '/api/state') return json(response, 200, { ...state, currentUser: publicUser(requestContext.getStore().user) });
   if (request.method === 'POST' && url.pathname === '/api/sync') {
@@ -1739,7 +1740,21 @@ await loadStore();
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url, `http://${request.headers.host}`);
-    if (url.pathname === '/api/healthz') return json(response, 200, { ok: true, service: 'chainfolio-backend' });
+    if (url.pathname === '/api/healthz') return json(response, 200, {
+      ok: true,
+      service: 'chainfolio-backend',
+      version: appVersion,
+      indexers: {
+        etherscan: Boolean(ETHERSCAN_API_KEY),
+        blockscoutNetworks: networkCatalog.filter(network => network.blockscoutApi).map(network => network.name)
+      },
+      discovery: {
+        maxTokens: TOKEN_DISCOVERY_MAX_TOKENS,
+        maxLogs: TOKEN_DISCOVERY_MAX_LOGS,
+        historyBlocks: TOKEN_DISCOVERY_HISTORY_BLOCKS,
+        fullHistory: TOKEN_DISCOVERY_FULL_HISTORY
+      }
+    });
     if (url.pathname.startsWith('/api/setup/')) return await handleSetupApi(request, response, url);
     if (url.pathname.startsWith('/api/auth/')) return await handleAuthApi(request, response, url);
     if (url.pathname.startsWith('/api/')) {

@@ -8,6 +8,29 @@ services:
       HOST: 0.0.0.0
       PORT: 4173
       COOKIE_SECURE: "true"
+      APP_VERSION: ${APP_VERSION:-server}
+      # Optional token indexers. Keep keys in the server-side .env file only.
+      ETHERSCAN_API_KEY: ${ETHERSCAN_API_KEY:-}
+      ETHERSCAN_API_BASE: ${ETHERSCAN_API_BASE:-https://api.etherscan.io/v2/api}
+      ETHEREUM_BLOCKSCOUT_API: ${ETHEREUM_BLOCKSCOUT_API:-https://eth.blockscout.com/api/v2}
+      ARBITRUM_BLOCKSCOUT_API: ${ARBITRUM_BLOCKSCOUT_API:-https://arbitrum.blockscout.com/api/v2}
+      BASE_BLOCKSCOUT_API: ${BASE_BLOCKSCOUT_API:-https://base.blockscout.com/api/v2}
+      OPTIMISM_BLOCKSCOUT_API: ${OPTIMISM_BLOCKSCOUT_API:-https://optimism.blockscout.com/api/v2}
+      ROBINHOOD_BLOCKSCOUT_API: ${ROBINHOOD_BLOCKSCOUT_API:-https://robinhoodchain.blockscout.com/api/v2}
+      # Optional trusted RPC overrides for chains whose public RPC limits logs.
+      ETHEREUM_RPC_URL: ${ETHEREUM_RPC_URL:-}
+      BNB_RPC_URL: ${BNB_RPC_URL:-}
+      ARBITRUM_RPC_URL: ${ARBITRUM_RPC_URL:-}
+      BASE_RPC_URL: ${BASE_RPC_URL:-}
+      OPTIMISM_RPC_URL: ${OPTIMISM_RPC_URL:-}
+      ROBINHOOD_RPC_URL: ${ROBINHOOD_RPC_URL:-}
+      XLAYER_RPC_URL: ${XLAYER_RPC_URL:-}
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-}
+      TOKEN_DISCOVERY_MAX_TOKENS: ${TOKEN_DISCOVERY_MAX_TOKENS:-250}
+      TOKEN_DISCOVERY_MAX_LOGS: ${TOKEN_DISCOVERY_MAX_LOGS:-20000}
+      TOKEN_DISCOVERY_FULL_HISTORY: ${TOKEN_DISCOVERY_FULL_HISTORY:-false}
+      TOKEN_DISCOVERY_HISTORY_BLOCKS: ${TOKEN_DISCOVERY_HISTORY_BLOCKS:-500000}
+      TOKEN_DISCOVERY_LOG_CHUNK: ${TOKEN_DISCOVERY_LOG_CHUNK:-50000}
     volumes:
       - ./data:/app/data
     security_opt:
