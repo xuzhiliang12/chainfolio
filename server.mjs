@@ -1401,7 +1401,13 @@ async function runSync(options = {}) {
   let selectedAddressIds = [];
   const syncPromise = (async () => {
     const selectedAddresses = addressesForScope(options);
-    const syncOptions = { ...options, deepDiscovery: options.deepDiscovery === true || options.deepDiscovery === 'true' };
+    const requestedDeepDiscovery = options.deepDiscovery === true || options.deepDiscovery === 'true';
+    // Targeted syncs are deliberate requests for a small scope. Automatically
+    // scan the full Transfer history there so older tokens are not hidden by a
+    // public RPC's recent-log window. Full-account syncs remain bounded unless
+    // the user explicitly enables deep discovery.
+    const targetedDeepDiscovery = !requestedDeepDiscovery && options.scope && options.scope !== 'all';
+    const syncOptions = { ...options, deepDiscovery: requestedDeepDiscovery || targetedDeepDiscovery };
     selectedAddressIds = selectedAddresses.map(item => item.id);
     state.sync = { status: 'running', startedAt: new Date().toISOString(), finishedAt: null, error: null, scope: options.scope || 'all', scopeLabel: scopeLabel(options), addressCount: selectedAddresses.length, deepDiscovery: syncOptions.deepDiscovery };
     await saveState();
