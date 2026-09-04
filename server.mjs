@@ -28,6 +28,10 @@ const TOKEN_DISCOVERY_LOG_CHUNK = Math.min(100_000, Math.max(5_000, Number(proce
 const TOKEN_DISCOVERY_FULL_HISTORY = process.env.TOKEN_DISCOVERY_FULL_HISTORY === 'true';
 const TOKEN_DISCOVERY_MAX_LOGS = Math.min(100_000, Math.max(100, Number(process.env.TOKEN_DISCOVERY_MAX_LOGS) || 20_000));
 const TOKEN_DISCOVERY_MIN_LOG_CHUNK = 1_000;
+// Very shallow DEX pools can report absurd prices after a single dust trade.
+// Keep the on-chain balance visible, but do not let an unreliable quote
+// inflate the portfolio total.
+const DEX_MIN_LIQUIDITY_USD = Math.max(0, Number(process.env.DEX_MIN_LIQUIDITY_USD) || 1_000);
 const ETHERSCAN_API_KEY = String(process.env.ETHERSCAN_API_KEY || '').trim();
 const ETHERSCAN_API_BASE = String(process.env.ETHERSCAN_API_BASE || 'https://api.etherscan.io/v2/api').trim();
 const COINGECKO_API_BASE = String(process.env.COINGECKO_API_BASE || 'https://api.coingecko.com/api/v3').replace(/\/$/, '');
@@ -922,6 +926,8 @@ async function getDexQuote(network, contract) {
       const baseAddress = String(pair.baseToken?.address || '').toLowerCase();
       const quoteAddress = String(pair.quoteToken?.address || '').toLowerCase();
       const basePriceUsd = Number(pair.priceUsd);
+      const liquidityUsd = Number(pair.liquidity?.usd);
+      if (!Number.isFinite(liquidityUsd) || liquidityUsd < DEX_MIN_LIQUIDITY_USD) return [];
       if (baseAddress === normalizedContract && basePriceUsd > 0) return [{ pair, price: basePriceUsd, change24: pair.priceChange?.h24 }];
       const basePriceInQuote = Number(pair.priceNative);
       if (quoteAddress === normalizedContract && basePriceUsd > 0 && basePriceInQuote > 0) {
@@ -1227,6 +1233,18 @@ async function readEvmTokenMetadata(network, contract, runLimited) {
   };
 }
 
+function isPlausibleTokenMetadata(metadata = {}) {
+  const symbol = String(metadata.symbol || '').trim().toUpperCase();
+  const name = String(metadata.name || '').trim();
+  // Explorer/RPC token metadata is user-controlled. Reject URL-like names,
+  // markup and symbols containing spaces/emoji so wallet-drainer spam does not
+  // pollute the asset table. Balances are still available through a verified
+  // custom-token entry if the user explicitly adds one.
+  if (!/^[A-Z0-9][A-Z0-9._-]{0,15}$/.test(symbol)) return false;
+  if (!name || name.length > 80 || /https?:\/\/|www\.|[<>]/i.test(name)) return false;
+  return true;
+}
+
 async function discoverEvmTokenAssets(addressItem, network, runLimited, options = {}) {
   const discovery = await discoverEvmTokenCandidates(addressItem, network, runLimited, options);
   const assets = [];
@@ -1241,6 +1259,7 @@ async function discoverEvmTokenAssets(addressItem, network, runLimited, options 
     const metadata = candidateMetadata && candidateMetadata.symbol && Number.isInteger(candidateMetadata.decimals) && candidateMetadata.decimals >= 0 && candidateMetadata.decimals <= 36
       ? { name: candidateMetadata.name || candidateMetadata.symbol, symbol: candidateMetadata.symbol, decimals: candidateMetadata.decimals }
       : await readEvmTokenMetadata(network, contract, runLimited);
+    if (!isPlausibleTokenMetadata(metadata)) continue;
     let rawBalance = safeBigInt(candidate.rawBalance);
     if (!rawBalance) {
       try {

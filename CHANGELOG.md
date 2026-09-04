@@ -2,6 +2,11 @@
 
 本项目使用语义化版本：修复问题增加补丁版本，新增兼容功能增加次版本，不兼容改动增加主版本。
 
+## 1.1.6 - 2026-09-04
+
+- Ignore DEX quotes from pools with less than $1,000 liquidity so a dust trade cannot inflate portfolio value.
+- Filter URL/HTML-like token metadata from automatic discovery while keeping on-chain balances available for explicit custom-token entries.
+
 ## 1.1.5 - 2026-09-04
 
 - 内置 X Layer xETH 与 BNB Chain Binance-Peg ETH（WETH），全账户自动查询余额。
