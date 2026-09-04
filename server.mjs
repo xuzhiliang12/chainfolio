@@ -30,6 +30,7 @@ const TOKEN_DISCOVERY_MAX_LOGS = Math.min(100_000, Math.max(100, Number(process.
 const TOKEN_DISCOVERY_MIN_LOG_CHUNK = 1_000;
 const ETHERSCAN_API_KEY = String(process.env.ETHERSCAN_API_KEY || '').trim();
 const ETHERSCAN_API_BASE = String(process.env.ETHERSCAN_API_BASE || 'https://api.etherscan.io/v2/api').trim();
+const COINGECKO_API_BASE = String(process.env.COINGECKO_API_BASE || 'https://api.coingecko.com/api/v3').replace(/\/$/, '');
 const TOKEN_INDEXER_TIMEOUT_MS = Math.min(30_000, Math.max(3_000, Number(process.env.TOKEN_INDEXER_TIMEOUT_MS) || 12_000));
 const SESSION_MAX_AGE = 7 * 24 * HOUR;
 const scryptAsync = promisify(scrypt);
@@ -97,14 +98,31 @@ const stablecoinCatalog = [
   { chain: 'X Layer', symbol: 'USDG', name: 'Global Dollar', decimals: 6, contract: '0x4ae46a509F6b1D9056937BA4500cb143933D2dc8', url: 'https://docs.paxos.com/guides/stablecoin/usdg/mainnet' }
 ];
 
-const AUTO_PRICE_SOURCES = new Set(['dexscreener', 'stablecoin-fallback', 'stablecoin-catalog']);
+const wrappedAssetCatalog = [
+  {
+    chain: 'BNB Chain', symbol: 'ETH', name: 'Binance-Peg Ethereum Token (WETH)', decimals: 18,
+    contract: '0x2170Ed0880ac9A755fd29B2688956BD959F933F8', priceId: 'ethereum',
+    url: 'https://bscscan.com/token/0x2170Ed0880ac9A755fd29B2688956BD959F933F8'
+  },
+  {
+    chain: 'X Layer', symbol: 'XETH', name: 'OKX Wrapped ETH', decimals: 18,
+    contract: '0xe7b000003a45145decf8a28fc755ad5ec5ea025a', priceId: 'ethereum',
+    url: 'https://www.okx.com/zh-hans/xassets'
+  }
+];
+
+const AUTO_PRICE_SOURCES = new Set(['dexscreener', 'stablecoin-fallback', 'stablecoin-catalog', 'wrapped-native-fallback']);
 const trustedStablecoinFallbacks = new Map(stablecoinCatalog.map(item => [
   `${item.chain.toLowerCase()}|${item.contract.toLowerCase()}`,
   { symbol: item.symbol, price: 1, url: item.url }
 ]));
+const trustedWrappedAssets = new Map(wrappedAssetCatalog.map(item => [
+  `${item.chain.toLowerCase()}|${item.contract.toLowerCase()}`,
+  item
+]));
 
-function stablecoinTokenDefinitions() {
-  return stablecoinCatalog.map(item => ({
+function systemTokenDefinitions() {
+  const stablecoins = stablecoinCatalog.map(item => ({
     id: `SC-${item.chain.replace(/[^a-z0-9]/gi, '').slice(0, 8).toUpperCase()}-${item.symbol}`,
     scope: 'all',
     chain: item.chain,
@@ -122,6 +140,26 @@ function stablecoinTokenDefinitions() {
     source: 'stablecoin-catalog',
     sourceUrl: item.url
   }));
+  const wrappedAssets = wrappedAssetCatalog.map(item => ({
+    id: `WA-${item.chain.replace(/[^a-z0-9]/gi, '').slice(0, 8).toUpperCase()}-${item.symbol}`,
+    scope: 'all',
+    chain: item.chain,
+    contract: item.contract,
+    symbol: item.symbol,
+    name: item.name,
+    decimals: item.decimals,
+    priceMode: 'auto',
+    manualPrice: null,
+    price: null,
+    quoteSource: 'wrapped-native-fallback',
+    status: 'pending',
+    system: true,
+    category: 'wrapped-asset',
+    source: 'wrapped-asset-catalog',
+    sourceUrl: item.url,
+    referencePriceId: item.priceId
+  }));
+  return [...stablecoins, ...wrappedAssets];
 }
 
 function stablecoinDefinition(chain, contract) {
@@ -168,7 +206,7 @@ function initialState() {
   const now = Date.now();
   const total = assets.reduce((sum, asset) => sum + (Number.isFinite(Number(asset.value)) ? Number(asset.value) : 0), 0);
   for (const address of addresses) address.nextSyncAt = randomRefreshAt(now);
-  return { version: 13, managers, phones, walletCounts, walletNames: {}, walletMetadata: {}, walletActivityTemplates: [], walletActivityStatuses: {}, addresses, customNetworks: [], customTokens: stablecoinTokenDefinitions(), assets, netWorthHistory: [{ timestamp: now, total }], lastSync: now, sync: { status: 'idle', startedAt: null, finishedAt: null, error: null }, scheduler: { mode: 'random', minIntervalHours: RANDOM_REFRESH_MIN_HOURS, maxIntervalHours: RANDOM_REFRESH_MAX_HOURS, concurrencyPerChain: CONCURRENCY_PER_CHAIN, lastBatchAt: null, lastBatchSize: 0, nextBatchAt: nextAddressSchedule(addresses) } };
+  return { version: 13, managers, phones, walletCounts, walletNames: {}, walletMetadata: {}, walletActivityTemplates: [], walletActivityStatuses: {}, addresses, customNetworks: [], customTokens: systemTokenDefinitions(), assets, netWorthHistory: [{ timestamp: now, total }], lastSync: now, sync: { status: 'idle', startedAt: null, finishedAt: null, error: null }, scheduler: { mode: 'random', minIntervalHours: RANDOM_REFRESH_MIN_HOURS, maxIntervalHours: RANDOM_REFRESH_MAX_HOURS, concurrencyPerChain: CONCURRENCY_PER_CHAIN, lastBatchAt: null, lastBatchSize: 0, nextBatchAt: nextAddressSchedule(addresses) } };
 }
 
 function emptyState() {
@@ -183,7 +221,7 @@ function emptyState() {
     walletActivityStatuses: {},
     addresses: [],
     customNetworks: [],
-    customTokens: stablecoinTokenDefinitions(),
+    customTokens: systemTokenDefinitions(),
     assets: [],
     netWorthHistory: [],
     lastSync: Date.now(),
@@ -319,9 +357,12 @@ function normalizePortfolio(portfolio) {
     }
     tokenDefinitions.set(key, token);
   }
-  for (const systemToken of stablecoinTokenDefinitions()) {
+  for (const systemToken of systemTokenDefinitions()) {
     const key = `${systemToken.chain.toLowerCase()}|${systemToken.contract.toLowerCase()}`;
-    if (!tokenDefinitions.has(key)) tokenDefinitions.set(key, systemToken);
+    const existing = tokenDefinitions.get(key);
+    tokenDefinitions.set(key, existing
+      ? { ...existing, system: true, category: systemToken.category, source: systemToken.source, sourceUrl: systemToken.sourceUrl, referencePriceId: systemToken.referencePriceId || null }
+      : systemToken);
   }
   normalized.customTokens = [...tokenDefinitions.values()];
   const customTokensById = new Map(normalized.customTokens.map(token => [token.id, token]));
@@ -761,7 +802,7 @@ async function getPrices(networks) {
   const ids = [...new Set(networks.map(network => network.priceId).filter(Boolean))];
   if (!ids.length) return {};
   try {
-    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(ids.join(','))}&vs_currencies=usd&include_24hr_change=true`;
+    const url = `${COINGECKO_API_BASE}/simple/price?ids=${encodeURIComponent(ids.join(','))}&vs_currencies=usd&include_24hr_change=true`;
     const response = await fetch(url, { headers: { accept: 'application/json', 'user-agent': 'Chainfolio/1.0' }, signal: AbortSignal.timeout(10_000) });
     if (response.ok) {
       const result = await response.json();
@@ -819,10 +860,51 @@ function addressSupportsNetwork(item, network) {
 }
 
 const dexQuoteCache = new Map();
+async function getTrustedWrappedAssetFallback(network, contract) {
+  const definition = trustedWrappedAssets.get(`${String(network?.name || '').toLowerCase()}|${String(contract || '').toLowerCase()}`);
+  if (!definition) return null;
+  const cacheKey = `wrapped-reference|${definition.priceId}`;
+  const cached = dexQuoteCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.quote;
+  const prices = await getPrices([{ priceId: definition.priceId }]);
+  const market = prices[definition.priceId] || {};
+  const price = Number(market.usd);
+  if (!Number.isFinite(price) || price <= 0) {
+    const unavailable = {
+      price: null,
+      change24: null,
+      liquidityUsd: null,
+      source: 'wrapped-native-fallback',
+      dexId: null,
+      pairAddress: null,
+      url: definition.url,
+      quotedAt: new Date().toISOString(),
+      error: 'ETH 参考价格暂时不可用'
+    };
+    dexQuoteCache.set(cacheKey, { quote: unavailable, expiresAt: Date.now() + MINUTE });
+    return unavailable;
+  }
+  const quote = {
+    price,
+    change24: nullableNumber(market.usd_24h_change),
+    liquidityUsd: null,
+    source: 'wrapped-native-fallback',
+    dexId: null,
+    pairAddress: null,
+    url: definition.url,
+    quotedAt: new Date().toISOString(),
+    error: null
+  };
+  dexQuoteCache.set(cacheKey, { quote, expiresAt: Date.now() + 5 * MINUTE });
+  return quote;
+}
+
 async function getDexQuote(network, contract) {
   const chainId = network?.dexScreenerId;
   const stablecoinFallback = getTrustedStablecoinFallback(network, contract);
   if (stablecoinFallback) return stablecoinFallback;
+  const wrappedFallback = await getTrustedWrappedAssetFallback(network, contract);
+  if (wrappedFallback) return wrappedFallback;
   if (!chainId) return stablecoinFallback || { price: null, change24: null, liquidityUsd: null, source: null, error: '该链暂不支持自动报价' };
   const normalizedContract = String(contract).toLowerCase();
   const cacheKey = `${chainId}|${normalizedContract}`;

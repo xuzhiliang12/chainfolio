@@ -199,3 +199,91 @@ test('values the official X Layer USDG contract when the market quote is unavail
     await rm(dataRoot, { recursive: true, force: true });
   }
 });
+
+test('tracks X Layer xETH and BNB Chain wrapped ETH globally using the ETH reference price', async () => {
+  const xethContract = '0xe7b000003a45145decf8a28fc755ad5ec5ea025a';
+  const bnbWethContract = '0x2170Ed0880ac9A755fd29B2688956BD959F933F8';
+  const xethBalance = 2n * 10n ** 18n;
+  const bnbWethBalance = 5n * 10n ** 17n;
+  const mock = createServer(async (request, response) => {
+    if (request.method === 'GET' && request.url?.startsWith('/api/v3/simple/price?')) {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(JSON.stringify({
+        ethereum: { usd: 3200, usd_24h_change: 2.5 },
+        binancecoin: { usd: 600 },
+        okb: { usd: 50 },
+        solana: { usd: 100 }
+      }));
+      return;
+    }
+    const chunks = [];
+    for await (const chunk of request) chunks.push(chunk);
+    const rpc = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    let result = '0x0';
+    if (rpc.method === 'alchemy_getTokenBalances') result = { tokenBalances: [] };
+    if (rpc.method === 'eth_getLogs') result = [];
+    if (rpc.method === 'eth_call') {
+      const contract = String(rpc.params?.[0]?.to || '').toLowerCase();
+      if (contract === xethContract.toLowerCase()) result = `0x${xethBalance.toString(16)}`;
+      if (contract === bnbWethContract.toLowerCase()) result = `0x${bnbWethBalance.toString(16)}`;
+    }
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ jsonrpc: '2.0', id: rpc.id, result }));
+  });
+  const mockPort = await listen(mock);
+  const dataRoot = await mkdtemp(join(tmpdir(), 'chainfolio-wrapped-eth-'));
+  const appPort = 46500 + (process.pid % 1000);
+  const url = `http://127.0.0.1:${appPort}`;
+  const password = 'AdminPassword-123';
+  const child = spawn(process.execPath, [fileURLToPath(new URL('../server.mjs', import.meta.url))], {
+    env: {
+      ...process.env,
+      HOST: '127.0.0.1', PORT: String(appPort), DATA_ROOT: dataRoot, COOKIE_SECURE: 'false',
+      SESSION_SECRET: 'integration-test-session-secret-32-characters', INITIAL_ADMIN_USERNAME: 'chainfolio',
+      INITIAL_ADMIN_PASSWORD_HASH: passwordHash(password), BNB_RPC_URL: `http://127.0.0.1:${mockPort}`,
+      XLAYER_RPC_URL: `http://127.0.0.1:${mockPort}`, COINGECKO_API_BASE: `http://127.0.0.1:${mockPort}/api/v3`,
+      DEX_SCREENER_BASE_URL: `http://127.0.0.1:${mockPort}`
+    },
+    stdio: 'ignore'
+  });
+
+  try {
+    await waitForServer(url);
+    const login = await request(url, '/api/auth/login', { method: 'POST', body: { username: 'chainfolio', password } });
+    const cookie = login.cookie; const csrf = login.payload.csrfToken;
+    const withBnb = await request(url, '/api/addresses', {
+      method: 'POST', cookie, csrf,
+      body: { phoneId: 'P-02', wallet: 1, chain: 'BNB Chain', address: '0x4444444444444444444444444444444444444444' }
+    });
+    const bnbAddress = withBnb.payload.addresses.find(item => item.address.toLowerCase().startsWith('0x4444'));
+    const withXLayer = await request(url, '/api/addresses', {
+      method: 'POST', cookie, csrf,
+      body: { phoneId: 'P-02', wallet: 2, chain: 'X Layer', address: '0x5555555555555555555555555555555555555555' }
+    });
+    const xlayerAddress = withXLayer.payload.addresses.find(item => item.address.toLowerCase().startsWith('0x5555'));
+    const synced = await request(url, '/api/sync', {
+      method: 'POST', cookie, csrf,
+      body: { scope: 'addressIds', addressIds: [bnbAddress.id, xlayerAddress.id] }
+    });
+    assert.equal(synced.response.status, 200);
+    const xethToken = synced.payload.customTokens.find(item => item.contract.toLowerCase() === xethContract.toLowerCase());
+    const bnbWethToken = synced.payload.customTokens.find(item => item.contract.toLowerCase() === bnbWethContract.toLowerCase());
+    assert.equal(xethToken.system, true);
+    assert.equal(bnbWethToken.system, true);
+    assert.equal(xethToken.quoteSource, 'wrapped-native-fallback');
+    assert.equal(bnbWethToken.quoteSource, 'wrapped-native-fallback');
+    const xethAsset = synced.payload.assets.find(item => item.customTokenId === xethToken.id && item.addressId === xlayerAddress.id);
+    const bnbWethAsset = synced.payload.assets.find(item => item.customTokenId === bnbWethToken.id && item.addressId === bnbAddress.id);
+    assert.equal(xethAsset.amount, '2 XETH');
+    assert.equal(xethAsset.value, 6400);
+    assert.equal(xethAsset.priceSource, 'wrapped-native-fallback');
+    assert.equal(bnbWethAsset.amount, '0.5 ETH');
+    assert.equal(bnbWethAsset.value, 1600);
+    assert.equal(bnbWethAsset.priceSource, 'wrapped-native-fallback');
+  } finally {
+    child.kill();
+    await new Promise(resolve => setTimeout(resolve, 250));
+    await new Promise(resolve => mock.close(resolve));
+    await rm(dataRoot, { recursive: true, force: true });
+  }
+});

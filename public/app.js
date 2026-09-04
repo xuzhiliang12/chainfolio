@@ -573,7 +573,7 @@ function renderAssets() {
     const change = Number(asset.change);
     const hasChange = Number.isFinite(change);
     const changeText = hasChange ? `${change >= 0 ? '+' : ''}${change.toFixed(2)}%` : '—';
-    const priceLabel = asset.priceSource === 'manual' ? ' · 手动价格' : asset.priceSource === 'stablecoin-fallback' ? ' · 稳定币估值' : asset.priceSource === 'dexscreener' ? ' · 自动报价' : ['etherscan', 'blockscout'].includes(asset.priceSource) ? ` · ${asset.priceSource === 'etherscan' ? 'Etherscan 报价' : 'Blockscout 报价'}` : '';
+    const priceLabel = asset.priceSource === 'manual' ? ' · 手动价格' : asset.priceSource === 'stablecoin-fallback' ? ' · 稳定币估值' : asset.priceSource === 'wrapped-native-fallback' ? ' · ETH 参考价' : asset.priceSource === 'dexscreener' ? ' · 自动报价' : ['etherscan', 'blockscout'].includes(asset.priceSource) ? ` · ${asset.priceSource === 'etherscan' ? 'Etherscan 报价' : 'Blockscout 报价'}` : '';
     const discoveryLabel = asset.source === 'auto-discovery' ? ` · 自动发现${asset.stale ? ' · 上次已知' : ''}` : '';
     const valueText = Number.isFinite(Number(asset.value)) ? `<strong>${privateValue(money(asset.value))}</strong>` : '<span class="no-quote">暂无报价</span>';
     return `
@@ -709,7 +709,7 @@ function exportAssets() {
     return matching?.address || '';
   };
   const lines = [headers, ...rows.map(asset => {
-    const priceState = Number.isFinite(Number(asset.value)) ? (asset.priceSource === 'manual' ? '手动价格' : asset.priceSource === 'stablecoin-fallback' ? '稳定币估值' : asset.priceSource === 'dexscreener' ? '自动报价' : ['etherscan', 'blockscout'].includes(asset.priceSource) ? '索引服务报价' : '已报价') : '暂无报价';
+    const priceState = Number.isFinite(Number(asset.value)) ? (asset.priceSource === 'manual' ? '手动价格' : asset.priceSource === 'stablecoin-fallback' ? '稳定币估值' : asset.priceSource === 'wrapped-native-fallback' ? 'ETH 参考价' : asset.priceSource === 'dexscreener' ? '自动报价' : ['etherscan', 'blockscout'].includes(asset.priceSource) ? '索引服务报价' : '已报价') : '暂无报价';
     return [managerForPhone(asset.phoneId)?.name || '未分配', phoneName(asset.phoneId), asset.phoneId, walletLabel(asset.wallet, asset.phoneId), asset.chain, asset.symbol, asset.name, asset.amount, Number.isFinite(Number(asset.change)) ? Number(asset.change).toFixed(2) : '', Number.isFinite(Number(asset.value)) ? Number(asset.value).toFixed(2) : '', priceState, `${asset.customTokenId ? '自定义币种' : (asset.source || '链上同步')}${asset.stale ? '（上次已知）' : ''}`, addressForAsset(asset)];
   })].map(line => line.map(csvCell).join(','));
   const blob = new Blob([`\ufeff${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' }); const url = URL.createObjectURL(blob); const link = document.createElement('a');
