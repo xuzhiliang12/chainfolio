@@ -8,7 +8,6 @@ services:
       HOST: 0.0.0.0
       PORT: 4173
       COOKIE_SECURE: "true"
-      APP_VERSION: ${APP_VERSION:-server}
       # Optional token indexers. Keep keys in the server-side .env file only.
       ETHERSCAN_API_KEY: ${ETHERSCAN_API_KEY:-}
       ETHERSCAN_API_BASE: ${ETHERSCAN_API_BASE:-https://api.etherscan.io/v2/api}
