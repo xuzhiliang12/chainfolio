@@ -1,4 +1,4 @@
-FROM node:22.13-alpine
+FROM node:26.12-alpine
 
 ARG VERSION=dev
 LABEL org.opencontainers.image.title="Chainfolio" \
